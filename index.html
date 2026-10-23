@@ -34,7 +34,16 @@
 
     <main class="content" id="top">
       <section class="hero">
-        <h1>미래를 바라보는 도전자<br><strong>이진범</strong>입니다.</h1>
+        <div class="orbs" aria-hidden="true">
+          <span class="orb orb-1"></span>
+          <span class="orb orb-2"></span>
+          <span class="orb orb-3"></span>
+        </div>
+        <h1>
+          <span class="line">미래를 바라보는 도전자</span>
+          <span class="line"><strong>이진범</strong>입니다.</span>
+        </h1>
+        <a class="scroll-hint" href="#projects" aria-label="Projects로 이동">↓</a>
       </section>
 
       <section id="projects" class="projects">
@@ -68,5 +77,25 @@
       </section>
     </main>
   </div>
+  <script>
+    // Reveal project cards as they scroll into view
+    const cards = document.querySelectorAll('.card');
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('visible');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+      cards.forEach((card, i) => {
+        card.style.transitionDelay = `${i * 120}ms`;
+        io.observe(card);
+      });
+    } else {
+      cards.forEach((card) => card.classList.add('visible'));
+    }
+  </script>
 </body>
 </html>
