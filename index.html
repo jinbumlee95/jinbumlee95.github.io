@@ -4,216 +4,69 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>이진범 · 포트폴리오</title>
-  <meta name="description" content="문제를 정확히 정의하고 검증 가능한 결과로 만드는 웹 개발자 이진범의 포트폴리오">
+  <meta name="description" content="미래를 바라보는 도전자 이진범의 포트폴리오">
   <meta property="og:title" content="이진범 · 포트폴리오">
-  <meta property="og:description" content="Java Spring 웹 개발 5년, RAG 기반 약관 변경 추적 프로젝트">
+  <meta property="og:description" content="미래를 바라보는 도전자 이진범입니다.">
   <meta property="og:type" content="website">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-  <header class="nav">
-    <div class="wrap nav-inner">
-      <a class="brand" href="#top">JB LEE</a>
-      <nav>
-        <a href="#about">소개</a>
-        <a href="#experience">경력</a>
-        <a href="#projects">프로젝트</a>
-        <a href="#skills">기술</a>
-        <a href="#contact">연락처</a>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="profile" href="#top">
+        <span class="name">이진범</span>
+        <span class="handle">JB LEE</span>
+      </a>
+      <nav class="menu">
+        <a href="https://velog.io/@jinbumlee95" target="_blank" rel="noopener">
+          <span>velog</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="https://github.com/jinbumlee95" target="_blank" rel="noopener">
+          <span>GitHub</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="#projects">
+          <span>Projects</span>
+        </a>
       </nav>
-    </div>
-  </header>
+    </aside>
 
-  <main id="top">
-    <!-- Hero -->
-    <section class="hero wrap">
-      <p class="eyebrow">Web Developer · 5년차</p>
-      <h1>문제를 정확히 정의하고,<br>검증 가능한 결과로 만듭니다.</h1>
-      <p class="lead">
-        이진범입니다. Java Spring으로 운영 중인 웹 서비스를 5년간 만들고 고쳐 왔고,
-        개인 프로젝트로 한국 온라인 서비스 약관의 변경 이력을 추적하는 데이터 인프라와 RAG 서비스를 만들고 있습니다.
-      </p>
-      <div class="cta">
-        <a class="btn primary" href="#projects">프로젝트 보기</a>
-        <a class="btn" href="https://github.com/jinbumlee95" target="_blank" rel="noopener">GitHub</a>
-      </div>
-      <dl class="stats">
-        <div><dt>조회 성능 개선</dt><dd>5s → 0.5s</dd></div>
-        <div><dt>실무 경력</dt><dd>5년 3개월</dd></div>
-        <div><dt>약관 변경 이력</dt><dd>10개사 · 1,000+ 버전</dd></div>
-      </dl>
-    </section>
+    <main class="content" id="top">
+      <section class="hero">
+        <h1>미래를 바라보는 도전자<br><strong>이진범</strong>입니다.</h1>
+      </section>
 
-    <!-- About -->
-    <section id="about" class="wrap section">
-      <h2>소개</h2>
-      <div class="cards three">
-        <article class="card">
-          <h3>가설을 세우고 검증합니다</h3>
-          <p>물리학을 전공하며 관찰 → 가설 → 검증을 반복했습니다. 느린 화면을 맡으면 원인을 추측하는 대신 가설을 세우고 쿼리를 바꿔 가며 측정합니다.</p>
-        </article>
-        <article class="card">
-          <h3>사람 사이를 잇습니다</h3>
-          <p>클라이언트(대학)와 기획자 사이에서 요청을 정리하고, 구현 가능한 범위와 우선순위를 협의해 실제로 만들 수 있는 기능 명세로 바꿔 왔습니다.</p>
-        </article>
-        <article class="card">
-          <h3>AI는 목적이 아니라 수단입니다</h3>
-          <p>"이 지점에 AI가 꼭 필요한가"를 먼저 따지고 적용 범위를 정합니다. 검증할 수 없는 판단은 덜어 내고, 검증할 수 있는 부분은 숫자로 확인합니다.</p>
-        </article>
-      </div>
-    </section>
-
-    <!-- Experience -->
-    <section id="experience" class="wrap section">
-      <h2>경력</h2>
-      <article class="timeline-item">
-        <div class="meta">
-          <span class="period">2021.04 — 2026.07</span>
-          <span class="org">(주)이니스트소프트 · 개발팀</span>
-          <span class="role">대리 / 웹개발자</span>
-        </div>
-        <div class="body">
-          <h3>대학 역량관리 시스템 개발 및 유지보수</h3>
-          <ul>
-            <li><strong>요구사항 조율</strong> — 클라이언트와 기획자 사이에서 요청을 정리하고 구현 범위·우선순위를 협의해 기능 명세로 구체화</li>
-            <li><strong>웹 서비스 개발</strong> — Java Spring 기반으로 기능 설계, 구현, 운영 중 유지보수까지 담당</li>
-            <li><strong>운영 개선</strong> — 메인 화면 목록 조회 시간을 약 5초에서 0.5초로 단축</li>
-          </ul>
-
-          <details class="case">
-            <summary>사례: 목록 조회 5초 → 0.5초</summary>
-            <div class="case-grid">
-              <div>
-                <h4>문제</h4>
-                <p>프로그램 테이블과 신청자 목록을 먼저 전부 JOIN한 뒤, WHERE 조건과 GROUP BY(신청자 수 집계)를 한 번에 처리했습니다. 커다란 JOIN 결과 전체를 묶고 나서 거르는 구조였습니다.</p>
-              </div>
-              <div>
-                <h4>변경</h4>
-                <p>대상 프로그램만 먼저 걸러 신청자 수를 집계하고, 작아진 집계 결과를 프로그램 테이블에 다시 붙여 마감임박순으로 정렬하도록 바꿨습니다.</p>
-              </div>
-              <div>
-                <h4>핵심</h4>
-                <p>테이블을 한 번 더 읽더라도 집계 전에 대상을 줄여 중간 결과를 작게 만드는 쪽이 훨씬 빨랐습니다.</p>
-              </div>
+      <section id="projects" class="projects">
+        <h2>Projects</h2>
+        <div class="cards">
+          <article class="card">
+            <p class="eyebrow">RAG</p>
+            <h3>WhereIsMyTerms</h3>
+            <p>한국 온라인 서비스 약관이 언제, 어떻게, 누구에게 불리하게 바뀌었는지 추적하고 근거를 달아 답하는 서비스</p>
+            <ul class="tags"><li>Python</li><li>LangGraph</li><li>Chroma</li></ul>
+            <a class="link" href="https://github.com/jinbumlee95/WhereIsMyTerms_OPEN" target="_blank" rel="noopener">GitHub →</a>
+          </article>
+          <article class="card">
+            <p class="eyebrow">데이터 인프라</p>
+            <h3>TOS-Korea</h3>
+            <p>약관 파일 하나가 문서, 커밋 하나가 버전. 한국 온라인 서비스 약관의 변경 이력을 Git으로 기록합니다.</p>
+            <ul class="tags"><li>Git</li><li>Web Crawling</li></ul>
+            <a class="link" href="https://github.com/jinbumlee95/TOS-Korea-Project" target="_blank" rel="noopener">GitHub →</a>
+          </article>
+          <article class="card">
+            <p class="eyebrow">On-device AI</p>
+            <h3>Pixel Heaven</h3>
+            <p>Chrome 내장 로컬 LLM(Gemini Nano)으로 채팅 명령을 해석하는 픽셀 정착지 시뮬레이션 게임</p>
+            <ul class="tags"><li>JavaScript</li><li>PixiJS</li></ul>
+            <div class="links">
+              <a class="link" href="https://jinbumlee95.github.io/Pixel_Heaven_OPEN/" target="_blank" rel="noopener">플레이 →</a>
+              <a class="link" href="https://github.com/jinbumlee95/Pixel_Heaven_OPEN" target="_blank" rel="noopener">GitHub →</a>
             </div>
-          </details>
+          </article>
         </div>
-      </article>
-    </section>
-
-    <!-- Projects -->
-    <section id="projects" class="wrap section">
-      <h2>프로젝트</h2>
-
-      <article class="project featured">
-        <div class="project-head">
-          <p class="eyebrow">대표 프로젝트 · RAG</p>
-          <h3>WhereIsMyTerms</h3>
-          <p class="sub">약관이 언제, 어떻게, 누구에게 불리하게 바뀌었는지 추적하고 근거를 달아 답하는 서비스</p>
-        </div>
-        <div class="project-body">
-          <div>
-            <h4>왜 만들었나</h4>
-            <p>쿠팡은 2024년 11월 약관에 제3자의 불법 접속으로 생긴 손해를 책임지지 않는다는 조항을 추가했지만, 대부분의 이용자는 2025년 대규모 유출 이후에야 이를 알았습니다. 약관은 누구나 동의하지만 거의 읽지 않고, 바뀌어도 알아차리기 어렵습니다.</p>
-            <h4>무엇을 하나</h4>
-            <ul>
-              <li>약관을 조항 단위로 나누고 버전 사이의 추가·수정·삭제를 추적 (번호만 바뀌거나 자리를 옮긴 조항도 같은 조항으로 연결)</li>
-              <li>"KT는 내 위치정보를 제3자에게 줄 때 알려줘?" 같은 질문에 현재 조항과 변경 이력을 찾아 근거 번호를 달아 답변</li>
-              <li>근거가 부족하면 다시 찾고, 끝내 부족하면 추측하지 않고 답변을 보류</li>
-              <li>약관이 인용한 법령은 그 약관 버전 당시 시행 중이던 판으로 조회</li>
-            </ul>
-            <h4>어떻게 검증했나</h4>
-            <p>공정거래위원회가 시정한 약관 조항 전·후 794쌍을 기준으로 삼아, 유불리 채점 모델이 90%(95% 구간 86–93%)에서 시정 전 조항을 더 불리하게 판정함을 확인했습니다. 약한 영역(환불·위약금 47%)도 그대로 기록했습니다.</p>
-          </div>
-          <aside class="project-side">
-            <h4>역할</h4>
-            <p>문제 정의 · 범위 결정 · 데이터 구조 설계 · 평가 설계<br><span class="muted">구현은 Claude Code와 협업</span></p>
-            <h4>스택</h4>
-            <ul class="tags">
-              <li>Python</li><li>LangGraph</li><li>Chroma</li><li>BM25</li><li>SQLite</li><li>SSE</li>
-            </ul>
-            <a class="link" href="https://github.com/jinbumlee95/WhereIsMyTerms_OPEN" target="_blank" rel="noopener">GitHub 저장소 →</a>
-          </aside>
-        </div>
-      </article>
-
-      <div class="cards two">
-        <article class="card project-card">
-          <p class="eyebrow">데이터 인프라</p>
-          <h3>TOS-Korea</h3>
-          <p>한국 온라인 서비스 약관의 변경 이력을 Git으로 기록합니다. 약관 파일 하나가 문서, 커밋 하나가 버전이라 <code>git log</code>와 <code>diff</code>로 언제 무엇이 바뀌었는지 바로 확인할 수 있습니다.</p>
-          <ul>
-            <li>네이버·카카오·토스·크래프톤 등 10개사, 1,000여 개 버전</li>
-            <li>수집 허용 여부를 사업자에게 직접 문의하고, 회신에 따라 정기 갱신 범위를 조정</li>
-          </ul>
-          <ul class="tags"><li>Git</li><li>Web Crawling</li><li>Markdown</li></ul>
-          <a class="link" href="https://github.com/jinbumlee95/TOS-Korea-Project" target="_blank" rel="noopener">GitHub 저장소 →</a>
-        </article>
-
-        <article class="card project-card">
-          <p class="eyebrow">사이드 프로젝트 · On-device AI</p>
-          <h3>Pixel Heaven</h3>
-          <p>Chrome에 내장된 로컬 LLM(Gemini Nano)을 활용한 픽셀 정착지 시뮬레이션 게임입니다. 채팅으로 내린 명령을 모델이 의도로 바꾸고, 엔진이 비용과 상태를 검증한 뒤에만 실행합니다.</p>
-          <ul>
-            <li>모델 출력을 별도 대화로 재검증, 실패 시 데모 해석으로 몰래 넘어가지 않음</li>
-            <li>83개 Node 테스트 스크립트, 30분 시뮬레이션 회귀 검증</li>
-          </ul>
-          <ul class="tags"><li>JavaScript</li><li>PixiJS</li><li>Prompt API</li></ul>
-          <div class="links">
-            <a class="link" href="https://jinbumlee95.github.io/Pixel_Heaven_OPEN/" target="_blank" rel="noopener">플레이하기 →</a>
-            <a class="link" href="https://github.com/jinbumlee95/Pixel_Heaven_OPEN" target="_blank" rel="noopener">GitHub 저장소 →</a>
-          </div>
-        </article>
-      </div>
-    </section>
-
-    <!-- Skills -->
-    <section id="skills" class="wrap section">
-      <h2>기술</h2>
-      <div class="skills">
-        <div><h3>Backend</h3><ul class="tags"><li>Java</li><li>Spring</li><li>REST API</li><li>SQL</li></ul></div>
-        <div><h3>AI · Data</h3><ul class="tags"><li>Python</li><li>LangGraph</li><li>RAG</li><li>Chroma</li><li>BM25</li></ul></div>
-        <div><h3>Frontend</h3><ul class="tags"><li>JavaScript</li><li>HTML/CSS</li><li>PixiJS</li></ul></div>
-        <div><h3>Tools</h3><ul class="tags"><li>Git</li><li>Claude Code</li></ul></div>
-      </div>
-    </section>
-
-    <!-- Education & Certs -->
-    <section id="education" class="wrap section">
-      <h2>학력 · 자격</h2>
-      <div class="cards two">
-        <div class="card">
-          <h3>학력</h3>
-          <ul class="plain">
-            <li><strong>경북대학교 물리학과</strong> 학사 졸업<span class="muted"> · 2013.03 — 2020.08 · GPA 4.08/4.5</span></li>
-            <li><strong>일본 도야마대학</strong> 교환학생<span class="muted"> · 2018.10 — 2019.08</span></li>
-          </ul>
-        </div>
-        <div class="card">
-          <h3>자격</h3>
-          <ul class="plain">
-            <li><strong>정보처리기사</strong><span class="muted"> · 한국산업인력공단 · 2022.06</span></li>
-            <li><strong>SQL 개발자 (SQLD)</strong><span class="muted"> · 한국데이터산업진흥원 · 2022.06</span></li>
-          </ul>
-        </div>
-      </div>
-    </section>
-
-    <!-- Contact -->
-    <section id="contact" class="wrap section contact">
-      <h2>연락처</h2>
-      <p>함께 이야기 나누고 싶으시면 편하게 연락 주세요.</p>
-      <div class="cta">
-        <a class="btn primary" href="mailto:lee_jinbum@naver.com">lee_jinbum@naver.com</a>
-        <a class="btn" href="https://github.com/jinbumlee95" target="_blank" rel="noopener">github.com/jinbumlee95</a>
-      </div>
-    </section>
-  </main>
-
-  <footer class="wrap footer">
-    <p>© 2026 이진범 · GitHub Pages로 배포</p>
-  </footer>
+      </section>
+    </main>
+  </div>
 </body>
 </html>
