@@ -140,14 +140,35 @@
     });
   });
 
+  // Generic sequence: children with data-step="n" switch on one after another
+  document.querySelectorAll('[data-seq]').forEach((el) => {
+    const gap = Number(el.dataset.seq) || 400;
+    const start = Number(el.dataset.seqStart) || 300;
+    const steps = [...el.querySelectorAll('[data-step]')];
+    let timers = [];
+    const stop = () => { timers.forEach(clearTimeout); timers = []; };
+    players.set(el, {
+      play() {
+        stop();
+        steps.forEach((s) => s.classList.toggle('on', reduce));
+        if (reduce) return;
+        steps.forEach((s) => timers.push(setTimeout(() => s.classList.add('on'), start + Number(s.dataset.step) * gap)));
+      },
+      reset() {
+        stop();
+        if (!reduce) steps.forEach((s) => s.classList.remove('on'));
+      },
+    });
+  });
+
   // Each section plays its reveals and graphics from the start every time it is entered
   const enter = (page) => {
     page.querySelectorAll('.reveal').forEach((el) => el.classList.add('in'));
-    players.get(page)?.play();
+    players.forEach((p, el) => { if (page.contains(el)) p.play(); });
   };
   const leave = (page) => {
     if (!reduce) page.querySelectorAll('.reveal').forEach((el) => el.classList.remove('in'));
-    players.get(page)?.reset();
+    players.forEach((p, el) => { if (page.contains(el)) p.reset(); });
   };
 
   if ('IntersectionObserver' in window && !reduce) {

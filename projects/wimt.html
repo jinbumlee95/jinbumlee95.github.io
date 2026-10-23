@@ -40,7 +40,7 @@
         <p class="eyebrow">데이터 인프라 + RAG</p>
         <h1>약관 변경 추적 프로젝트</h1>
         <p class="detail-sub">WhereIsMyTerms · TOS-Korea</p>
-        <ul class="tags"><li>Python</li><li>LangGraph</li><li>Chroma</li><li>BM25</li><li>SQLite</li><li>Git</li></ul>
+        <ul class="tags"><li>Python</li><li>LangGraph</li><li>Jev</li><li>Vector DB</li><li>BM25</li><li>SQL</li><li>Git</li></ul>
         <span class="scroll-cue" aria-hidden="true"><span></span></span>
       </header>
 
@@ -92,6 +92,104 @@
         <p class="scrub-line">약관은 중요하지만 아무도 관심이 없습니다.</p>
         <p class="scrub-line">자주 바뀌지만 바뀐 것이 무엇인지 모릅니다.</p>
         <p class="scrub-line accent">하지만 무엇보다 중요한 계약입니다.</p>
+      </section>
+
+      <!-- How it works: overview flow -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">How it works</p>
+        <h2 class="reveal" style="--d: 0.05s">어떻게 작동하나요?</h2>
+        <div class="flow" data-seq="320" data-seq-start="400">
+          <div class="flow-node" data-step="0"><span class="flow-kind">입력</span><strong>질문</strong></div>
+          <span class="flow-link" data-step="1"></span>
+          <div class="flow-node judge" data-step="2"><span class="flow-kind">Jev</span><strong>분기</strong></div>
+          <span class="flow-link" data-step="3"></span>
+          <div class="flow-node" data-step="4"><span class="flow-kind">벡터 + BM25</span><strong>검색</strong></div>
+          <span class="flow-link" data-step="5"></span>
+          <div class="flow-node judge" data-step="6"><span class="flow-kind">Jev</span><strong>관련도</strong></div>
+          <span class="flow-link" data-step="7"></span>
+          <div class="flow-node judge" data-step="8"><span class="flow-kind">Jev</span><strong>충분성</strong></div>
+          <span class="flow-link" data-step="9"></span>
+          <div class="flow-node llm" data-step="10"><span class="flow-kind">LLM</span><strong>답변</strong></div>
+          <p class="flow-loop" data-step="11">↺ 근거가 부족하면 검색어를 늘려 다시 찾고(최대 2회), 끝내 부족하면 <strong>추측하지 않고 답변을 보류</strong>합니다</p>
+        </div>
+        <p class="legend reveal" style="--d: 0.3s"><span class="dot judge"></span>판정은 결정 모델 Jev <span class="dot llm"></span>글쓰기는 LLM</p>
+      </section>
+
+      <!-- How it works 1: embedding -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">01 · 조항 단위 임베딩</p>
+        <h2 class="reveal" style="--d: 0.05s">약관을 <strong class="accent-text">조항 단위</strong>로 나눠 색인합니다</h2>
+        <div class="embed" data-seq="260" data-seq-start="300">
+          <div class="embed-doc" data-step="0">
+            <span class="embed-doc-title">쿠팡 이용약관</span>
+            <span class="line"></span><span class="line"></span><span class="line short"></span><span class="line"></span><span class="line short"></span>
+          </div>
+          <span class="embed-arrow" data-step="1">→</span>
+          <div class="embed-chips">
+            <span class="chip" data-step="2"><em>[쿠팡 · 이용약관]</em> 제1조 목적</span>
+            <span class="chip" data-step="3"><em>[쿠팡 · 이용약관]</em> 제7조 서비스 이용</span>
+            <span class="chip" data-step="4"><em>[쿠팡 · 이용약관]</em> 제38조 회사의 면책</span>
+          </div>
+          <span class="embed-arrow" data-step="5">→</span>
+          <div class="embed-db" data-step="6"><strong>벡터 DB</strong><span>Chroma + BM25</span></div>
+        </div>
+        <ul class="points">
+          <li class="reveal" style="--d: 0.2s">조(제N조) 하나를 한 단위로 자르고, 1,500자가 넘는 긴 조항은 항 경계에서 조각으로 나눕니다.</li>
+          <li class="reveal" style="--d: 0.3s">조각마다 <strong>[서비스 · 문서 제목] 조항 번호 · 제목</strong> 머리말을 붙여, 비슷한 약관끼리도 서비스를 구분합니다.</li>
+          <li class="reveal" style="--d: 0.4s">한국어 임베딩 모델과 키워드 검색(BM25)을 함께 써, "환불", "면책"처럼 키워드가 강한 질문의 빈 곳을 메웁니다.</li>
+        </ul>
+        <div class="stats-row">
+          <div class="stat reveal" style="--d: 0.5s"><span class="stat-value">0.42 → 0.62</span><span class="stat-label">정답 조항을 1위로 찾는 비율<br>(OpenAI small → 한국어 모델)</span></div>
+          <div class="stat reveal" style="--d: 0.6s"><span class="stat-value">97.5%</span><span class="stat-label">현재 조항 질문에서 정답이<br>상위 5개 안에 드는 비율</span></div>
+        </div>
+      </section>
+
+      <!-- How it works 2: Jev judgments -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">02 · Jev 판정</p>
+        <h2 class="reveal" style="--d: 0.05s">결정 모델 <strong class="accent-text">Jev</strong>가 세 가지를 판단합니다</h2>
+        <p class="example reveal" style="--d: 0.15s">예시 질문 · "쿠팡 24시간 이용 안내 아직 있어?"</p>
+        <div class="gates" data-seq="450" data-seq-start="500">
+          <div class="gate" data-step="0" style="--v: 89%; --t: 30%">
+            <div class="gate-head"><strong>분기</strong><span>약관을 봐야 답할 수 있는 질문인가?</span></div>
+            <div class="gauge"><span class="gauge-fill"></span><span class="gauge-mark"></span></div>
+            <div class="gate-foot"><span>0.89 <small>기준 0.3 (서비스 이름이 있을 때)</small></span><span class="pass">→ 검색</span></div>
+          </div>
+          <div class="gate" data-step="1" style="--v: 87%; --t: 50%">
+            <div class="gate-head"><strong>관련도</strong><span>찾은 근거가 질문과 맞는가?</span></div>
+            <div class="gauge"><span class="gauge-fill"></span><span class="gauge-mark"></span></div>
+            <div class="gate-foot"><span>0.87 <small>기준 0.5</small></span><span class="pass">→ 근거 채택</span></div>
+          </div>
+          <div class="gate" data-step="2" style="--v: 68%; --t: 60%">
+            <div class="gate-head"><strong>충분성</strong><span>이 근거만으로 답할 수 있는가?</span></div>
+            <div class="gauge"><span class="gauge-fill"></span><span class="gauge-mark"></span></div>
+            <div class="gate-foot"><span>0.68 <small>기준 0.6</small></span><span class="pass">→ 답변</span></div>
+          </div>
+        </div>
+        <div class="notes">
+          <p class="note-card reveal" style="--d: 0.3s"><strong>판정 확률 = LangGraph의 분기 조건</strong>Jev가 돌려주는 확률을 그대로 그래프의 조건 분기(edge) 기준으로 썼습니다. 좋은 시점에 나온 모델이라 바로 적용할 수 있었습니다.</p>
+          <p class="note-card reveal" style="--d: 0.45s"><strong>기다림을 줄이는 설계</strong>로딩이 1초에서 3초로 늘면 이탈 확률이 32% 오른다는 Google 연구를 기준 삼아, 판정은 가벼운 결정 모델에 맡기고 진행 단계를 실시간으로 보여 줍니다. 질문 하나 평균 5.4초 (평가 질문 191개).</p>
+        </div>
+      </section>
+
+      <!-- How it works 3: answer -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">03 · 답변</p>
+        <h2 class="reveal" style="--d: 0.05s">맞는 조항을 가져와 <strong class="accent-text">근거를 달아</strong> 답합니다</h2>
+        <div class="chat" data-seq="380" data-seq-start="400">
+          <p class="bubble user" data-step="0">쿠팡 24시간 이용 안내 아직 있어?</p>
+          <div class="progress-steps">
+            <span data-step="1">질문 분기</span>
+            <span data-step="2">조항 · 변경 이력 검색</span>
+            <span data-step="3">근거 판정</span>
+            <span data-step="4">답변 작성</span>
+          </div>
+          <div class="bubble bot" data-step="5">
+            <p>24시간 이용 안내는 <strong>2015-01-02 개정에서 삭제</strong>되어 지금 쿠팡 이용약관에는 없습니다. <span class="cite">[1]</span></p>
+            <p class="evidence" data-step="6"><span class="cite">[1]</span> 쿠팡 이용약관 제7조 · 변경 이력</p>
+          </div>
+        </div>
+        <p class="caption reveal" style="--d: 0.3s">판정 확률과 답변은 2026-09-29 실제 실행 기록을 바탕으로 다시 그린 예시입니다.</p>
       </section>
 
       <!-- Structure -->
