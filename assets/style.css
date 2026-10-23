@@ -8,6 +8,7 @@
   --accent: #2563eb;
   --accent-soft: #eff6ff;
   --radius: 14px;
+  --detail-bg: rgb(211, 211, 211);  /* light only: grey backdrop so cards stand out on detail pages */
   color-scheme: light;
 }
 
@@ -22,6 +23,7 @@
     --border: #292524;
     --accent: #60a5fa;
     --accent-soft: #172554;
+    --detail-bg: var(--bg);
     color-scheme: dark;
   }
 }
@@ -35,6 +37,7 @@
   --border: #292524;
   --accent: #60a5fa;
   --accent-soft: #172554;
+  --detail-bg: var(--bg);
   color-scheme: dark;
 }
 
@@ -240,6 +243,9 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   color: var(--accent);
 }
 .link { font-weight: 600; font-size: 0.95rem; }
+
+/* Detail pages (About me, project): tinted backdrop in light mode */
+.detail, .about { background: var(--detail-bg); }
 
 /* Project detail page */
 .progress {
@@ -576,7 +582,7 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
 .gate-foot small { font-weight: 500; color: var(--muted); margin-left: 4px; }
 .pass { color: var(--accent); }
 .notes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; width: 100%; text-align: left; }
-.note-card { margin: 0; padding: 16px 18px; border-radius: 12px; border: 1px solid var(--border); color: var(--muted); font-size: 0.9rem; }
+.note-card { margin: 0; padding: 16px 18px; border-radius: 12px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.9rem; }
 .note-card strong { display: block; color: var(--text); font-size: 0.95rem; margin-bottom: 4px; }
 
 /* How it works 3: answer */
