@@ -78,6 +78,7 @@ a:hover { text-decoration: underline; }
 .menu a:nth-child(1) { animation-delay: 0.1s; }
 .menu a:nth-child(2) { animation-delay: 0.2s; }
 .menu a:nth-child(3) { animation-delay: 0.3s; }
+.menu a:nth-child(4) { animation-delay: 0.4s; }
 .menu a:hover, .menu a.active { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
 .ext { color: var(--muted); font-size: 0.85rem; transition: transform 0.2s ease; }
 .menu a:hover .ext { transform: translate(2px, -2px); }
@@ -425,6 +426,62 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
 .scrub-line .w.lit { opacity: 1; }
 .scrub-line.accent .w.lit { color: var(--accent); }
 
+/* About me */
+.accent-text { color: var(--accent); }
+.chapter h2 { margin: 0; font-size: clamp(1.4rem, 2.6vw, 2rem); }
+
+.strengths { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; text-align: left; }
+.strength { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px 24px; }
+.strength .num { font-size: 0.85rem; font-weight: 800; color: var(--accent); letter-spacing: 0.08em; }
+.strength h3 { margin: 8px 0; }
+.strength p { margin: 0; color: var(--muted); }
+
+.job {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 32px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 32px;
+}
+.job-meta { display: flex; flex-direction: column; gap: 4px; }
+.job-meta .period { font-weight: 700; color: var(--accent); font-size: 0.9rem; }
+.job-meta h2 { font-size: 1.3rem; }
+.job-body ul { padding-left: 1.1em; margin: 8px 0 0; }
+.job-body li { margin: 8px 0; color: var(--muted); }
+.job-body li strong { display: block; color: var(--text); }
+
+.bars { display: flex; flex-direction: column; gap: 14px; width: 100%; max-width: 720px; }
+.bar-row { display: grid; grid-template-columns: 64px 1fr 72px; align-items: center; gap: 12px; text-align: left; }
+.bar-label { color: var(--muted); font-size: 0.9rem; font-weight: 600; }
+.bar-value { font-weight: 700; text-align: right; }
+.bar { height: 14px; border-radius: 999px; background: var(--border); overflow: hidden; }
+.bar-fill { display: block; height: 100%; width: 0; border-radius: 999px; transition: width 1.2s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.bar-fill.before { background: var(--muted); transition-delay: 0.3s; }
+.bar-fill.after { background: linear-gradient(90deg, var(--accent), #8b5cf6); transition-delay: 0.9s; }
+.bars.in .bar-fill { width: var(--w); }
+
+.case-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; width: 100%; text-align: left; }
+.case-step { border-top: 2px solid var(--accent); padding-top: 12px; }
+.case-step h3 { font-size: 1rem; margin: 0 0 6px; }
+.case-step p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+.plain { list-style: none; padding: 0; margin: 0; }
+.plain li { margin: 12px 0; }
+.btn-link {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+}
+.btn-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+
 /* Structure */
 .structure h2 { margin: 0; }
 .parts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; width: 100%; text-align: left; }
@@ -485,7 +542,9 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   .big br, .captions br { display: none; }
   .scrolly { gap: 20px; padding: 32px 0; }
   .pager, .next-btn { display: none; }
-  .rag-cases, .parts { grid-template-columns: 1fr; gap: 12px; }
+  .rag-cases, .parts, .strengths, .case-steps { grid-template-columns: 1fr; gap: 12px; }
+  .job { grid-template-columns: 1fr; gap: 12px; padding: 20px; }
+  .strength { padding: 18px 20px; }
   .rag-case { padding: 18px 20px; }
   .rag-case p { font-size: 0.9rem; }
   .reveal.from-left, .reveal.from-right { transform: translateY(40px); }
@@ -496,5 +555,6 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   *, *::before, *::after { animation: none !important; transition: none !important; }
   .hero h1 .line, .intro, .menu a, .card, .reveal, .detail-head > * { opacity: 1; transform: none; }
   h1 strong::after { transform: scaleX(1); }
+  .bar-fill { width: var(--w); }
   html { scroll-behavior: auto; }
 }
