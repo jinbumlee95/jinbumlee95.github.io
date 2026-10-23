@@ -1,0 +1,50 @@
+# Deploy to GitHub Pages, stamping each CSS/JS reference with a content hash
+# (e.g. assets/style.css?v=3f9a1c2b7d) so browsers fetch new files after every change.
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add content hashes to CSS/JS references
+        run: |
+          for asset in $(find assets -type f \( -name '*.css' -o -name '*.js' \)); do
+            hash=$(sha256sum "$asset" | cut -c1-10)
+            name=$(printf '%s' "$asset" | sed 's/[.]/\./g')
+            find . -name '*.html' -not -path './.git/*' \
+              -exec sed -i "s#\(${name}\)\"#\1?v=${hash}\"#g" {} +
+            echo "$asset -> ?v=$hash"
+          done
+          grep -rhoE 'assets/[^"]+\?v=[0-9a-f]+' --include='*.html' . | sort | uniq -c
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
