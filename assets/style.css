@@ -704,14 +704,14 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   .gates, .notes { grid-template-columns: 1fr; gap: 10px; }
   .about { min-height: calc(100svh - 56px); }
   .kv li { grid-template-columns: 1fr; gap: 0; }
-  .flow { flex-direction: column; }
-  .flow-node { flex-direction: row; gap: 8px; padding: 8px 14px; }
+  .flow { flex-direction: column; flex-wrap: nowrap; }
+  .flow-node { flex-direction: row; justify-content: center; gap: 8px; padding: 8px 14px; width: 220px; }
   .flow-link[data-step] { width: 2px; height: 14px; }
   .flow-link::after { transform: scaleY(0); transform-origin: top; }
   .flow-link.on::after { transform: scaleY(1); }
-  .flow-loop { margin-top: 14px; font-size: 0.85rem; }
+  .flow-loop { flex-basis: auto; width: 100%; margin-top: 14px; font-size: 0.85rem; }
   .embed { flex-direction: column; gap: 8px; }
-  .embed-arrow { transform: rotate(90deg); }
+  .embed-arrow, .embed-arrow.on { transform: rotate(90deg); }
   .embed-doc { display: none; }
   .embed-arrow[data-step="1"] { display: none; }
   .strength { padding: 18px 20px; }
