@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <link rel="stylesheet" href="../assets/style.css">
+  <script>
+    // Apply a saved theme before first paint to avoid a flash
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
 </head>
 <body>
   <div class="progress" aria-hidden="true"></div>
@@ -31,6 +35,9 @@
           <span>Projects</span>
         </a>
       </nav>
+      <button type="button" class="theme-toggle" aria-label="라이트/다크 모드 전환">
+        <span class="theme-icon" aria-hidden="true"></span><span class="theme-label"></span>
+      </button>
     </aside>
 
     <main class="content detail">
@@ -214,5 +221,6 @@
   </div>
   <button type="button" class="next-btn" aria-label="다음 섹션">↓</button>
   <script src="../assets/story.js"></script>
+  <script src="../assets/theme.js"></script>
 </body>
 </html>
