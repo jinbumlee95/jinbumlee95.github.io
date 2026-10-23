@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="../assets/style.css">
 </head>
 <body>
+  <div class="progress" aria-hidden="true"></div>
   <div class="layout">
     <aside class="sidebar">
       <a class="profile" href="../">
@@ -30,37 +31,87 @@
     </aside>
 
     <main class="content detail">
-      <a class="back" href="../#projects">← Projects</a>
-
-      <header class="detail-head">
+      <!-- Title -->
+      <header class="detail-head page">
+        <a class="back" href="../#projects">← Projects</a>
         <p class="eyebrow">데이터 인프라 + RAG</p>
         <h1>약관 변경 추적 프로젝트</h1>
         <p class="detail-sub">WhereIsMyTerms · TOS-Korea</p>
         <ul class="tags"><li>Python</li><li>LangGraph</li><li>Chroma</li><li>BM25</li><li>SQLite</li><li>Git</li></ul>
+        <span class="scroll-cue" aria-hidden="true"><span></span></span>
       </header>
 
-      <section class="detail-section">
-        <h2>구성</h2>
+      <!-- Think Flow 1: why -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">Think Flow</p>
+        <p class="big reveal" style="--d: 0.1s">이 프로젝트는 <strong>AI 시대</strong>를 맞아 새로운 도전을 하면서<br>알아 가게 된 것들을 하나씩 녹여 가며 만들었습니다.</p>
+        <p class="big muted reveal" style="--d: 0.5s">그중에서도 <strong>RAG(검색 증강 생성)</strong>를 배우고,<br>이를 어디에 활용할 수 있을지 고민했습니다.</p>
+      </section>
+
+      <!-- Think Flow 2: where RAG is needed (auto-playing stages) -->
+      <section class="scrolly page" data-stages="3" data-stage="0">
+        <div class="captions">
+          <h2 data-for="0">제가 생각하는 RAG가 필요한 곳은<br><strong>크게 두 가지</strong>입니다</h2>
+          <h2 data-for="1">첫 번째는 기획을 해도<br><strong>자료를 구성할 수 없었습니다</strong></h2>
+          <h2 data-for="2">그래서 두 번째에서<br><strong>RAG로서 가치 있는 정보</strong>를 찾았습니다</h2>
+        </div>
+        <div class="rag-cases">
+          <article class="rag-case case-a reveal from-left">
+            <span class="num">01</span>
+            <h3>LLM이 처음부터 학습할 수 없는 것</h3>
+            <p>사내 문서, 개인 문서처럼 일반적으로 웹에서 얻을 수 없는 정보</p>
+            <p class="note">적절한 자료를 구성할 수 없음</p>
+          </article>
+          <article class="rag-case case-b reveal from-right" style="--d: 0.15s">
+            <span class="num">02</span>
+            <h3>LLM이 학습하기 어려운 것</h3>
+            <p>계속 바뀌는 정보, 사전 학습(Pre-trained)이 끝난 뒤에 생긴 정보</p>
+            <div class="filters">
+              <span>중요하지만, 놓치는 것</span>
+              <span>자주 바뀌지만, 알지 못하는 것</span>
+            </div>
+          </article>
+        </div>
+        <div class="stage-dots">
+          <button type="button" data-go="0" aria-label="1단계 보기"></button>
+          <button type="button" data-go="1" aria-label="2단계 보기"></button>
+          <button type="button" data-go="2" aria-label="3단계 보기"></button>
+        </div>
+      </section>
+
+      <!-- Think Flow 3: the answer -->
+      <section class="chapter page">
+        <p class="big reveal">이에 해당하는 자료를 고민하고 리서치한 끝에<br>도출해 낸 프로젝트가 <strong>WhereIsMyTerms</strong>와 <strong>TOS-Korea</strong>입니다.</p>
+      </section>
+
+      <!-- Think Flow 4: why terms (words light up automatically) -->
+      <section class="scrub page" data-scrub>
+        <p class="scrub-line">약관은 중요하지만 아무도 관심이 없습니다.</p>
+        <p class="scrub-line">자주 바뀌지만 바뀐 것이 무엇인지 모릅니다.</p>
+        <p class="scrub-line accent">하지만 무엇보다 중요한 계약입니다.</p>
+      </section>
+
+      <!-- Structure -->
+      <section class="chapter structure page">
+        <h2 class="reveal">구성</h2>
         <div class="parts">
-          <div class="part">
+          <div class="part reveal from-left">
+            <p class="eyebrow">데이터 인프라</p>
             <h3>TOS-Korea</h3>
-            <p>데이터 인프라. 약관 파일 하나가 문서, 커밋 하나가 버전. 한국 온라인 서비스 약관의 변경 이력을 Git으로 기록합니다.</p>
+            <p>약관 파일 하나가 문서, 커밋 하나가 버전. 한국 온라인 서비스 약관의 변경 이력을 Git으로 기록합니다.</p>
             <a class="link" href="https://github.com/jinbumlee95/TOS-Korea-Project" target="_blank" rel="noopener">GitHub →</a>
           </div>
-          <div class="part">
+          <div class="part reveal from-right" style="--d: 0.15s">
+            <p class="eyebrow">서비스 · RAG</p>
             <h3>WhereIsMyTerms</h3>
-            <p>서비스. 쌓인 변경 이력을 바탕으로 약관이 언제, 어떻게, 누구에게 불리하게 바뀌었는지 근거를 달아 답합니다.</p>
+            <p>쌓인 변경 이력을 바탕으로 약관이 언제, 어떻게, 누구에게 불리하게 바뀌었는지 근거를 달아 답합니다.</p>
             <a class="link" href="https://github.com/jinbumlee95/WhereIsMyTerms_OPEN" target="_blank" rel="noopener">GitHub →</a>
           </div>
         </div>
       </section>
-
-      <!-- Think Flow: 작성해 주실 내용을 바탕으로 채울 예정 -->
-      <section class="detail-section">
-        <h2>Think Flow</h2>
-        <p class="muted">작성 중입니다.</p>
-      </section>
     </main>
   </div>
+  <button type="button" class="next-btn" aria-label="다음 섹션">↓</button>
+  <script src="../assets/story.js"></script>
 </body>
 </html>
