@@ -8,7 +8,8 @@
   --accent: #2563eb;
   --accent-soft: #eff6ff;
   --radius: 14px;
-  --detail-bg: rgb(225, 225, 225);  /* light only: grey backdrop so cards stand out on detail pages */
+  --detail-bg: rgb(225, 225, 225);
+  --about-chip: var(--detail-bg);   /* light: About chips match the grey backdrop */  /* light only: grey backdrop so cards stand out on detail pages */
   color-scheme: light;
 }
 
@@ -24,6 +25,7 @@
     --accent: #60a5fa;
     --accent-soft: #172554;
     --detail-bg: var(--bg);
+    --about-chip: var(--accent-soft);
     color-scheme: dark;
   }
 }
@@ -38,6 +40,7 @@
   --accent: #60a5fa;
   --accent-soft: #172554;
   --detail-bg: var(--bg);
+  --about-chip: var(--accent-soft);
   color-scheme: dark;
 }
 
@@ -611,6 +614,7 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
 .about-card > :nth-child(7) { animation-delay: 0.72s; }
 .about-card > :nth-child(8) { animation-delay: 0.84s; }
 .about-block .tags { margin: 4px 0 0; }
+.about-block .tags li { background: var(--about-chip); }
 .about-cta { text-align: center; }
 .about-block .strengths { margin-top: 12px; }
 .about-block .strength { padding: 20px; }
