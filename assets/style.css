@@ -91,15 +91,29 @@ a:hover { text-decoration: underline; }
   align-items: center;
 }
 
+/* Home: intro + projects together on the first screen */
+.home {
+  position: relative;
+  overflow: hidden;
+  min-height: 100vh;
+  justify-content: center;
+  gap: 48px;
+  padding-top: 48px;
+  padding-bottom: 48px;
+}
+
 /* Hero */
 .hero {
   position: relative;
   width: 100%;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   text-align: center;
+}
+.intro {
+  margin: 20px 0 0;
+  color: var(--muted);
+  font-size: clamp(0.95rem, 1.4vw, 1.1rem);
+  opacity: 0;
+  animation: fade-up 0.8s 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
 }
 h1 {
   position: relative;
@@ -144,26 +158,12 @@ h1 strong::after {
   opacity: 0.35;
   animation: drift 14s ease-in-out infinite alternate;
 }
-.orb-1 { width: 320px; height: 320px; background: var(--accent); top: 12%; left: 15%; }
-.orb-2 { width: 260px; height: 260px; background: #8b5cf6; bottom: 12%; right: 15%; animation-duration: 18s; animation-delay: -4s; }
-.orb-3 { width: 180px; height: 180px; background: #06b6d4; top: 38%; left: 46%; animation-duration: 22s; animation-delay: -8s; opacity: 0.25; }
-
-.scroll-hint {
-  position: absolute;
-  left: 0;
-  right: 0;
-  width: fit-content;
-  margin: 0 auto;
-  bottom: 24px;
-  font-size: 1.4rem;
-  color: var(--muted);
-  opacity: 0;
-  animation: fade-up 0.6s 1.6s forwards, bob 2s 2.2s ease-in-out infinite;
-}
-.scroll-hint:hover { color: var(--accent); text-decoration: none; }
+.orb-1 { width: 320px; height: 320px; background: var(--accent); top: 8%; left: 15%; }
+.orb-2 { width: 260px; height: 260px; background: #8b5cf6; bottom: 10%; right: 15%; animation-duration: 18s; animation-delay: -4s; }
+.orb-3 { width: 180px; height: 180px; background: #06b6d4; top: 35%; left: 46%; animation-duration: 22s; animation-delay: -8s; opacity: 0.25; }
 
 /* Projects */
-.projects { width: 100%; max-width: 1100px; padding-top: 24px; text-align: center; }
+.projects { position: relative; width: 100%; max-width: 1100px; text-align: center; }
 h2 { font-size: 1.6rem; margin: 0 0 24px; }
 h3 { font-size: 1.2rem; margin: 0 0 8px; }
 
@@ -232,10 +232,6 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   from { transform: translate(0, 0) scale(1); }
   to { transform: translate(-60px, 40px) scale(1.15); }
 }
-@keyframes bob {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(8px); }
-}
 @keyframes slide-in {
   from { opacity: 0; transform: translateX(-12px); }
   to { opacity: 1; transform: translateX(0); }
@@ -262,7 +258,8 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   .menu a { padding: 6px 8px; font-size: 0.9rem; }
   .ext { display: none; }
   .content { padding: 0 16px 56px; }
-  .hero { min-height: calc(100svh - 56px); }
+  .home { min-height: calc(100svh - 56px); gap: 32px; padding-top: 32px; padding-bottom: 32px; }
+  .intro br { display: none; }
   .orb-1 { width: 200px; height: 200px; }
   .orb-2 { width: 160px; height: 160px; }
   .orb-3 { display: none; }
@@ -275,7 +272,7 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
 /* Respect users who prefer less motion */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
-  .hero h1 .line, .menu a, .scroll-hint, .card { opacity: 1; transform: none; }
+  .hero h1 .line, .intro, .menu a, .card { opacity: 1; transform: none; }
   h1 strong::after { transform: scaleX(1); }
   html { scroll-behavior: auto; }
 }
