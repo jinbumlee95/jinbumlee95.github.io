@@ -8,7 +8,7 @@
   --accent: #2563eb;
   --accent-soft: #eff6ff;
   --radius: 14px;
-  --detail-bg: rgb(211, 211, 211);  /* light only: grey backdrop so cards stand out on detail pages */
+  --detail-bg: rgb(225, 225, 225);  /* light only: grey backdrop so cards stand out on detail pages */
   color-scheme: light;
 }
 
@@ -618,6 +618,7 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
 .about-intro h1 { margin: 0 0 12px; }
 .about-intro p:not(.eyebrow) { margin: 0; color: var(--muted); }
 .about-block h2 { font-size: 0.85rem; color: var(--muted); letter-spacing: 0.08em; margin: 0 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.about-block.info { padding: 20px 24px; border-radius: var(--radius); background: var(--surface); border: 1px solid var(--border); }
 .kv { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .kv li { display: grid; grid-template-columns: 150px 1fr; gap: 12px; }
 .kv li > span { color: var(--muted); font-size: 0.9rem; }
