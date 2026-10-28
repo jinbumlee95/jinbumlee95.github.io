@@ -621,6 +621,19 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   animation: flip 0.55s cubic-bezier(0.3, 1.4, 0.5, 1) forwards, tint 0.4s ease forwards;
   animation-delay: calc(0.2s + var(--i) * 0.12s), calc(1.5s + var(--i) * 0.08s);
 }
+/* Home card: small tiles, already colored */
+.tiles.small { gap: 3px; margin: 0 0 10px; }
+.tiles.small span {
+  width: 24px;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  transform: none;
+  opacity: 1;
+  animation: none;
+  background: var(--c);
+  border-color: var(--c);
+  color: #111;
+}
 
 /* Posterdle 1: poster and clue land in one space */
 .space { display: flex; align-items: center; justify-content: center; gap: 20px; width: 100%; flex-wrap: wrap; }
