@@ -602,6 +602,101 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
 .evidence { margin-top: 10px !important; padding-top: 10px; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--muted); }
 .caption { margin: 0; font-size: 0.8rem; color: var(--muted); }
 
+/* Posterdle title: tiles flip in one by one, then take the share-text colors (🟥🟧🟨🟩) */
+.tiles { display: flex; gap: clamp(4px, 0.8vw, 8px); margin-top: 8px; perspective: 600px; }
+.detail-head .tiles { opacity: 1; animation: none; }
+.tiles span {
+  width: clamp(30px, 6.4vw, 68px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  font-size: clamp(18px, 4.2vw, 44px);
+  font-weight: 800;
+  line-height: 1;
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  transform: rotateX(-90deg);
+  opacity: 0;
+  animation: flip 0.55s cubic-bezier(0.3, 1.4, 0.5, 1) forwards, tint 0.4s ease forwards;
+  animation-delay: calc(0.2s + var(--i) * 0.12s), calc(1.5s + var(--i) * 0.08s);
+}
+
+/* Posterdle 1: poster and clue land in one space */
+.space { display: flex; align-items: center; justify-content: center; gap: 20px; width: 100%; flex-wrap: wrap; }
+.space-inputs { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.poster-mini {
+  width: 96px;
+  padding: 6px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.poster-art { display: block; aspect-ratio: 2 / 3; border-radius: 6px; background: linear-gradient(160deg, #1e3a8a, #6d28d9 55%, #f59e0b); }
+.poster-label { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+.space-plane {
+  position: relative;
+  width: 280px;
+  height: 190px;
+  border-radius: 14px;
+  border: 1px dashed var(--border);
+  background: var(--surface);
+}
+.space-name { position: absolute; left: 12px; top: 8px; font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+.pt { position: absolute; left: var(--x); top: var(--y); width: 8px; height: 8px; border-radius: 999px; background: var(--border); }
+.pt.pair { width: 14px; height: 14px; margin: -3px; }
+.pt.poster { border-radius: 3px; background: #8b5cf6; }
+.pt.clue { background: var(--accent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 20%, transparent); }
+
+/* Posterdle 2: blend bars */
+.bars-title { margin: 0; font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+.bar-fill.mid { background: #8b5cf6; transition-delay: 0.6s; }
+
+/* Posterdle 3: clue log reuses the gauges */
+.clue-log .gate-head strong { color: var(--text); }
+
+/* Posterdle 4: hint timeline */
+.hint-steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: 100%; text-align: left; }
+.hint-step {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.hint-when { font-size: 0.75rem; font-weight: 700; color: var(--muted); letter-spacing: 0.04em; }
+.hint-eg { font-size: 0.85rem; color: var(--muted); }
+.hint-step.vlm { border-color: #8b5cf6; }
+.hint-step.vlm .hint-when { color: #8b5cf6; }
+.hint-step.strong { box-shadow: 0 10px 24px -14px color-mix(in srgb, #8b5cf6 70%, transparent); }
+
+/* Posterdle 5: choice cards */
+.picks { position: relative; display: grid; grid-template-columns: repeat(8, 1fr); gap: 10px; width: 100%; max-width: 640px; }
+.pick {
+  aspect-ratio: 2 / 3;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background: linear-gradient(160deg, hsl(var(--h) 55% 35%), hsl(calc(var(--h) + 40) 60% 60%));
+  transition: opacity 0.4s ease, transform 0.4s ease, border-color 0.3s ease, filter 0.3s ease;
+}
+.picks:has(.pick-done.on) .pick:not(.answer) { filter: grayscale(1); opacity: 0.35; }
+.picks:has(.pick-done.on) .pick.answer { border-color: var(--accent); transform: translateY(-8px) scale(1.06); }
+.pick-done {
+  grid-column: 1 / -1;
+  justify-self: center;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
 /* About me (single short page) */
 .about { min-height: 100vh; justify-content: center; padding-top: 48px; padding-bottom: 48px; }
 .about-card { width: 100%; max-width: 860px; display: flex; flex-direction: column; gap: 32px; }
@@ -683,6 +778,8 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   font-weight: 600;
 }
 .btn-link:hover { border-color: var(--accent); color: var(--accent); text-decoration: none; }
+.play-link { padding: 12px 28px; background: var(--accent); border-color: var(--accent); color: #fff; }
+.play-link:hover { color: #fff; box-shadow: 0 10px 24px -12px color-mix(in srgb, var(--accent) 70%, transparent); }
 
 /* Structure */
 .structure h2 { margin: 0; }
@@ -706,6 +803,8 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   from { transform: translateY(-100%); }
   to { transform: translateY(200%); }
 }
+@keyframes flip { to { transform: rotateX(0); opacity: 1; } }
+@keyframes tint { to { background: var(--c); border-color: var(--c); color: #111; } }
 @keyframes slide-in {
   from { opacity: 0; transform: translateX(-12px); }
   to { opacity: 1; transform: translateX(0); }
@@ -765,6 +864,13 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   .rag-case { padding: 18px 20px; }
   .rag-case p { font-size: 0.9rem; }
   .reveal.from-left, .reveal.from-right { transform: translateY(40px); }
+  .space { flex-direction: column; gap: 8px; }
+  .space-inputs { flex-direction: row; }
+  .poster-mini { width: 72px; }
+  .space .embed-arrow, .space .embed-arrow.on { transform: rotate(90deg); }
+  .hint-steps { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .hint-step { padding: 10px 12px; }
+  .picks { grid-template-columns: repeat(4, 1fr); max-width: 320px; gap: 8px; }
 }
 
 /* Respect users who prefer less motion */
@@ -775,5 +881,6 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   .bar-fill { width: var(--w); }
   [data-step], .about-card > * { opacity: 1; transform: none; }
   .gauge-fill { width: var(--v); }
+  .tiles span { opacity: 1; transform: none; background: var(--c); border-color: var(--c); color: #111; }
   html { scroll-behavior: auto; }
 }

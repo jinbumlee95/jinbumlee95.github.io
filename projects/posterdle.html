@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Posterdle · 이진범</title>
+  <meta name="description" content="Posterdle: 이미지와 텍스트를 같은 공간에 놓는 임베딩 모델로 만든 영화 포스터 맞히기 게임">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="../assets/style.css">
+  <script>
+    // Apply a saved theme before first paint to avoid a flash
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <div class="progress" aria-hidden="true"></div>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="profile" href="../">
+        <span class="name">이진범</span>
+        <span class="handle">JB LEE</span>
+      </a>
+      <nav class="menu">
+        <a href="../about.html">
+          <span>About me</span>
+        </a>
+        <a href="https://velog.io/@jinbumlee95/posts" target="_blank" rel="noopener">
+          <span>velog</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="https://github.com/jinbumlee95" target="_blank" rel="noopener">
+          <span>GitHub</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="../#projects" class="active">
+          <span>Projects</span>
+        </a>
+      </nav>
+      <button type="button" class="theme-toggle" aria-label="라이트/다크 모드 전환">
+        <span class="theme-icon" aria-hidden="true"></span><span class="theme-label"></span>
+      </button>
+    </aside>
+
+    <main class="content detail">
+      <!-- Title -->
+      <header class="detail-head page">
+        <a class="back" href="../#projects">← Projects</a>
+        <p class="eyebrow">멀티모달 임베딩 + 게임</p>
+        <h1 class="tiles" aria-label="POSTERDLE"><span style="--i:0;--c:#e5534b">P</span><span style="--i:1;--c:#e5534b">O</span><span style="--i:2;--c:#f0883e">S</span><span style="--i:3;--c:#f0883e">T</span><span style="--i:4;--c:#e3b341">E</span><span style="--i:5;--c:#e3b341">R</span><span style="--i:6;--c:#57c27a">D</span><span style="--i:7;--c:#57c27a">L</span><span style="--i:8;--c:#57c27a">E</span></h1>
+        <p class="detail-sub">영화 포스터 맞히기 게임 · 10번의 단서, 한 번의 선택.</p>
+        <ul class="tags"><li>Python</li><li>EmbeddingGemma 2</li><li>FastAPI</li><li>Vite</li><li>VLM</li><li>EasyOCR · LaMa</li><li>Cloudflare Tunnel</li></ul>
+        <span class="scroll-cue" aria-hidden="true"><span></span></span>
+      </header>
+
+      <!-- Think Flow 1: why -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">Think Flow</p>
+        <p class="big reveal" style="--d: 0.1s"><strong>비정형 데이터를, 비정형으로</strong> 찾을 수 있는 도구가 나왔습니다.</p>
+        <p class="big muted reveal" style="--d: 0.5s"><strong>사진과 단어</strong>가 같은 공간에 있습니다.</p>
+        <p class="big reveal" style="--d: 0.9s">우리는 이것을 이용하여 <strong>어떤 걸 만들 수 있을까요?</strong></p>
+      </section>
+
+      <!-- Think Flow 2: the question (words light up automatically) -->
+      <section class="scrub page" data-scrub>
+        <p class="scrub-line">사람은 포스터를 보고 "비 오는 밤"이라고 말합니다.</p>
+        <p class="scrub-line">AI는 같은 포스터를 768개의 숫자로 봅니다.</p>
+        <p class="scrub-line">둘은 얼마나 가까울까요?</p>
+        <p class="scrub-line accent">10번의 단서, 한 번의 선택.</p>
+      </section>
+
+      <!-- How it works: overview flow -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">How it works</p>
+        <h2 class="reveal" style="--d: 0.05s">어떻게 플레이하나요?</h2>
+        <div class="flow" data-seq="300" data-seq-start="400">
+          <div class="flow-node llm" data-step="0"><span class="flow-kind">사용자</span><strong>단서 입력</strong></div>
+          <span class="flow-link" data-step="1"></span>
+          <div class="flow-node judge" data-step="2"><span class="flow-kind">임베딩</span><strong>텍스트 → 벡터</strong></div>
+          <span class="flow-link" data-step="3"></span>
+          <div class="flow-node judge" data-step="4"><span class="flow-kind">행렬곱 한 번</span><strong>포스터와 비교</strong></div>
+          <span class="flow-link" data-step="5"></span>
+          <div class="flow-node" data-step="6"><span class="flow-kind">결과</span><strong>N위 · S점</strong></div>
+          <span class="flow-link" data-step="7"></span>
+          <div class="flow-node llm" data-step="8"><span class="flow-kind">최고 순위 N</span><strong>N장 중 선택</strong></div>
+          <p class="flow-loop" data-step="9">↺ 단서는 <strong>최대 10번</strong>. 막히면 원할 때 힌트를 열고, 최고 순위가 20위 안에 들면 남은 단서를 건너뛰고 바로 고를 수 있습니다</p>
+        </div>
+        <p class="legend reveal" style="--d: 0.3s"><span class="dot judge"></span>임베딩 모델의 계산 <span class="dot llm"></span>사용자의 선택</p>
+      </section>
+
+      <!-- How it works 1: shared space -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">01 · 같은 공간</p>
+        <h2 class="reveal" style="--d: 0.05s">그림과 말을 <strong class="accent-text">그대로</strong> 비교합니다</h2>
+        <div class="space" data-seq="300" data-seq-start="300">
+          <div class="space-inputs">
+            <div class="poster-mini" data-step="0"><span class="poster-art"></span><span class="poster-label">포스터</span></div>
+            <span class="chip" data-step="1"><em>단서</em> 비 오는 밤</span>
+          </div>
+          <span class="embed-arrow" data-step="2">→</span>
+          <div class="space-plane" data-step="3">
+            <span class="space-name">768차원 공간</span>
+            <span class="pt" style="--x: 18%; --y: 30%"></span>
+            <span class="pt" style="--x: 72%; --y: 22%"></span>
+            <span class="pt" style="--x: 34%; --y: 74%"></span>
+            <span class="pt" style="--x: 84%; --y: 66%"></span>
+            <span class="pt" style="--x: 50%; --y: 40%"></span>
+            <span class="pt pair poster" data-step="4" style="--x: 58%; --y: 56%"></span>
+            <span class="pt pair clue" data-step="5" style="--x: 66%; --y: 48%"></span>
+          </div>
+        </div>
+        <ul class="points">
+          <li class="reveal" style="--d: 0.2s">KOBIS 주간 박스오피스(2003년~)에서 흥행작을 고르고, TMDB에서 포스터를 받아 <strong>정답 후보 1,327편</strong>을 만들었습니다. 캐주얼 모드는 그중 주간 1위를 한 549편입니다.</li>
+          <li class="reveal" style="--d: 0.3s">포스터를 장르·색상 같은 태그로 바꾸지 않고 <strong>이미지 그대로</strong> 임베딩합니다. 사용자의 단서도 같은 모델로 같은 공간에 놓습니다.</li>
+          <li class="reveal" style="--d: 0.4s">수천 장 규모라 벡터 DB 없이 넘파이 배열 하나로 전수 비교합니다. 모델은 SigLIP 2와 비교한 뒤 다국어 <strong>EmbeddingGemma 2 (4.4억 파라미터)</strong>로 정했습니다.</li>
+        </ul>
+        <div class="stats-row">
+          <div class="stat reveal" style="--d: 0.5s"><span class="stat-value">1,327편</span><span class="stat-label">정답 후보 포스터<br>(시네필 모드 기준)</span></div>
+          <div class="stat reveal" style="--d: 0.6s"><span class="stat-value">약 85ms</span><span class="stat-label">단서 하나를 채점하는 시간<br>(CPU, GPU 없음)</span></div>
+        </div>
+      </section>
+
+      <!-- How it works 2: text inside posters -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">02 · 포스터 속 글자</p>
+        <h2 class="reveal" style="--d: 0.05s">모델이 <strong class="accent-text">글자를 읽는다</strong>는 걸 알게 됐습니다</h2>
+        <ul class="points">
+          <li class="reveal" style="--d: 0.15s">원본 포스터에 영화 제목을 단서로 넣으면 <strong>78.7%가 바로 1위</strong>였습니다. 모델이 그림보다 포스터에 적힌 제목을 읽고 있었습니다.</li>
+          <li class="reveal" style="--d: 0.25s">EasyOCR로 글자를 찾고 LaMa로 지운 포스터를 따로 임베딩하자 같은 비율이 <strong>17%</strong>로 내려갔습니다. 화면에는 계속 원본을 보여 줍니다.</li>
+          <li class="reveal" style="--d: 0.35s">두 벡터를 <strong>원본 0.42 + 글자 지움 0.58</strong>로 섞어 채점합니다. 비율은 GPT가 쓴 묘사 약 8만 개를 모두 채점해서 찾았습니다.</li>
+        </ul>
+        <div class="bars reveal" style="--d: 0.45s">
+          <p class="bars-title">힌트 2개를 합친 묘사로 맞힐 때의 평균 점수 (100점 만점)</p>
+          <div class="bar-row"><span class="bar-label">원본만</span><span class="bar"><span class="bar-fill before" style="--w: 62.9%"></span></span><span class="bar-value">62.9</span></div>
+          <div class="bar-row"><span class="bar-label">글자 지움</span><span class="bar"><span class="bar-fill mid" style="--w: 67.5%"></span></span><span class="bar-value">67.5</span></div>
+          <div class="bar-row"><span class="bar-label">섞음</span><span class="bar"><span class="bar-fill after" style="--w: 69.6%"></span></span><span class="bar-value">69.6</span></div>
+        </div>
+      </section>
+
+      <!-- How it works 3: rank and score -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">03 · 순위와 점수</p>
+        <h2 class="reveal" style="--d: 0.05s">유사도 대신 <strong class="accent-text">"몇 번째로 가까운가"</strong>를 보여 줍니다</h2>
+        <p class="example reveal" style="--d: 0.15s">예시 · 캐주얼 모드 549편 중 정답의 순위</p>
+        <div class="gates clue-log" data-seq="450" data-seq-start="500">
+          <div class="gate" data-step="0" style="--v: 9%; --t: 52%">
+            <div class="gate-head"><strong>우주</strong><span>첫 단서</span></div>
+            <div class="gauge"><span class="gauge-fill"></span><span class="gauge-mark"></span></div>
+            <div class="gate-foot"><span>312위</span><span>9점</span></div>
+          </div>
+          <div class="gate" data-step="1" style="--v: 39%; --t: 52%">
+            <div class="gate-head"><strong>비 오는 밤</strong><span>방향을 바꿔 봄</span></div>
+            <div class="gauge"><span class="gauge-fill"></span><span class="gauge-mark"></span></div>
+            <div class="gate-foot"><span>48위</span><span>39점</span></div>
+          </div>
+          <div class="gate" data-step="2" style="--v: 78%; --t: 52%">
+            <div class="gate-head"><strong>비 오는 밤 우산 쓴 두 사람</strong><span>이전 단서에 이어 붙임</span></div>
+            <div class="gauge"><span class="gauge-fill"></span><span class="gauge-mark"></span></div>
+            <div class="gate-foot"><span>4위</span><span class="pass">78점 → 건너뛰기 가능</span></div>
+          </div>
+        </div>
+        <div class="notes">
+          <p class="note-card reveal" style="--d: 0.3s"><strong>점수는 로그 눈금</strong>유사도 원값은 좁은 구간에 몰려 차이가 느껴지지 않습니다. 그래서 순위를 100 × (1 − ln N / ln 풀 크기)로 바꿨습니다. 1위 100점, 5위 74점, 20위 52점(세로선)입니다.</p>
+          <p class="note-card reveal" style="--d: 0.45s"><strong>단서는 하나씩 따로 채점</strong>시스템이 단서를 합치지 않습니다. 좁히고 싶으면 사용자가 직접 앞 단서를 이어 붙여 씁니다. 입력을 100자까지 넉넉히 받는 이유입니다.</p>
+        </div>
+        <p class="caption reveal" style="--d: 0.5s">순위와 점수는 점수 공식으로 계산한 예시입니다.</p>
+      </section>
+
+      <!-- How it works 4: hints -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">04 · 힌트</p>
+        <h2 class="reveal" style="--d: 0.05s">막히면 <strong class="accent-text">원할 때만</strong> 힌트를 엽니다</h2>
+        <div class="hint-steps" data-seq="320" data-seq-start="400">
+          <div class="hint-step" data-step="0"><span class="hint-when">처음부터</span><strong>장르 · 개봉 연도</strong></div>
+          <div class="hint-step" data-step="1"><span class="hint-when">50위 안</span><strong>상위 포스터를 겹친 흐린 그림</strong></div>
+          <div class="hint-step" data-step="2"><span class="hint-when">5번째 뒤</span><strong>제작 국가</strong></div>
+          <div class="hint-step vlm" data-step="3"><span class="hint-when">7번째 뒤</span><strong>색 · 빛 · 구도</strong><span class="hint-eg">"푸른 어둠 속 한 줄기 빛"</span></div>
+          <div class="hint-step vlm" data-step="4"><span class="hint-when">8번째 뒤</span><strong>사물 · 인물</strong><span class="hint-eg">"등을 돌린 남자"</span></div>
+          <div class="hint-step vlm strong" data-step="5"><span class="hint-when">9번째 뒤</span><strong>포스터 전체 묘사</strong><span class="hint-eg">두 번 눌러야 열립니다</span></div>
+        </div>
+        <ul class="points">
+          <li class="reveal" style="--d: 0.2s">묘사 힌트는 VLM(GPT)이 포스터 1,349장을 직접 보고 미리 썼습니다. 제목·배우·감독 이름은 금지어로 걸러 냅니다.</li>
+          <li class="reveal" style="--d: 0.3s">힌트마다 같은 모델로 채점해 <strong>너무 강한 힌트</strong>와 여러 영화에 똑같이 쓰인 문장을 찾아냅니다. 전체 묘사는 평균 92점이라 확인 단계를 한 번 더 둡니다.</li>
+          <li class="reveal" style="--d: 0.4s">힌트에 점수 불이익은 없습니다. 연 힌트 수는 공유 텍스트에 💡로 남습니다.</li>
+        </ul>
+      </section>
+
+      <!-- How it works 5: the pick -->
+      <section class="chapter page">
+        <p class="eyebrow reveal">05 · 선택</p>
+        <h2 class="reveal" style="--d: 0.05s">최고 순위 <strong class="accent-text">N장 중 한 장</strong>을 고릅니다</h2>
+        <div class="picks" data-seq="120" data-seq-start="300">
+          <span class="pick" data-step="0" style="--h: 210"></span>
+          <span class="pick" data-step="1" style="--h: 20"></span>
+          <span class="pick" data-step="2" style="--h: 160"></span>
+          <span class="pick answer" data-step="3" style="--h: 260"></span>
+          <span class="pick" data-step="4" style="--h: 330"></span>
+          <span class="pick" data-step="5" style="--h: 45"></span>
+          <span class="pick" data-step="6" style="--h: 190"></span>
+          <span class="pick" data-step="7" style="--h: 120"></span>
+          <span class="pick-done" data-step="12">🎯 정답!</span>
+        </div>
+        <ul class="points">
+          <li class="reveal" style="--d: 0.2s">가장 좋았던 순위 N을 기준으로 <strong>최소 3장, 최대 10장</strong>을 섞어 보여 줍니다. 1위를 해도 3장 중에서 골라야 해서, 제목 한 번으로 끝나지 않습니다.</li>
+          <li class="reveal" style="--d: 0.3s">보기는 (문제 번호, 단서 목록)을 시드로 뽑아서 <strong>새로고침해도 바뀌지 않습니다.</strong></li>
+          <li class="reveal" style="--d: 0.4s">고르기 전에 떠오른 제목을 받고, 맞으면 결과와 공유 텍스트에 🎯를 남깁니다. 공유 링크를 메신저에 붙이면 결과 카드가 미리보기로 뜹니다.</li>
+        </ul>
+      </section>
+
+      <!-- Structure -->
+      <section class="chapter structure page">
+        <h2 class="reveal">구성</h2>
+        <div class="parts">
+          <div class="part reveal from-left">
+            <p class="eyebrow">오프라인 · 데이터 파이프라인</p>
+            <h3>미리 계산해 두는 것</h3>
+            <p>KOBIS 박스오피스 → TMDB 포스터 매칭 → 글자 지움(EasyOCR + LaMa) → 포스터 임베딩 → VLM 묘사 힌트와 채점표. 무거운 작업은 모두 여기서 끝냅니다.</p>
+          </div>
+          <div class="part reveal from-right" style="--d: 0.15s">
+            <p class="eyebrow">온라인 · 게임 서버</p>
+            <h3>단서 하나에 행렬곱 한 번</h3>
+            <p>FastAPI 서버가 단서를 임베딩해 채점하고, Vite로 만든 화면을 내줍니다. 하루 한 문제의 진행 상태는 서버가 아니라 서명된 쿠키에 담아, 재시작해도 이어서 풉니다.</p>
+          </div>
+        </div>
+        <a class="btn-link play-link reveal" style="--d: 0.3s" href="https://posterdle.jblee.app/" target="_blank" rel="noopener">플레이 해보기 ↗</a>
+        <p class="caption reveal" style="--d: 0.4s">posterdle.jblee.app · 맥미니 + Cloudflare Tunnel로 운영합니다.</p>
+      </section>
+    </main>
+  </div>
+  <button type="button" class="next-btn" aria-label="다음 섹션">↓</button>
+  <script src="../assets/story.js"></script>
+  <script src="../assets/theme.js"></script>
+</body>
+</html>
