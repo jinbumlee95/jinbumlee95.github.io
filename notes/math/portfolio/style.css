@@ -98,6 +98,7 @@ a:hover { text-decoration: underline; }
 .menu a:nth-child(2) { animation-delay: 0.2s; }
 .menu a:nth-child(3) { animation-delay: 0.3s; }
 .menu a:nth-child(4) { animation-delay: 0.4s; }
+.menu a:nth-child(5) { animation-delay: 0.5s; }
 .menu a:hover, .menu a.active { background: var(--accent-soft); color: var(--accent); text-decoration: none; }
 .ext { color: var(--muted); font-size: 0.85rem; transition: transform 0.2s ease; }
 .menu a:hover .ext { transform: translate(2px, -2px); }
@@ -238,6 +239,7 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
 /* Projects: section header with view controls */
 .section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; }
 .section-head h2 { margin: 0; }
+.section-intro { margin: -8px 0 20px; color: var(--muted); text-align: left; }
 .view-tools { display: flex; align-items: center; gap: 10px; }
 .view-toggle { display: inline-flex; padding: 3px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); }
 .view-toggle button {
@@ -269,13 +271,11 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   flex-wrap: nowrap;
   justify-content: flex-start;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
-  scroll-padding: 0 4px;
   padding: 8px 4px 16px;
   scrollbar-width: thin;
 }
 .view-slide .cards:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: var(--radius); }
-.view-slide .card { flex: 0 0 min(440px, 88%); scroll-snap-align: start; }
+.view-slide .card { flex: 0 0 min(440px, 88%); }
 
 /* List view: blog-style rows */
 .projects.view-list { max-width: 820px; }
@@ -890,8 +890,10 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   .profile { padding: 0; }
   .name { font-size: 1.1rem; }
   .handle { display: none; }
-  .menu { flex-direction: row; }
-  .menu a { padding: 6px 8px; font-size: 0.9rem; }
+  /* Name + theme button on the first row, the five links on a full-width second row */
+  .sidebar { flex-wrap: wrap; gap: 6px 8px; padding-bottom: 6px; }
+  .menu { order: 3; flex: 1 1 100%; flex-direction: row; justify-content: space-between; gap: 0; }
+  .menu a { padding: 6px 4px; font-size: 0.88rem; white-space: nowrap; }
   .ext { display: none; }
   .theme-toggle { margin-top: 0; padding: 6px 8px; border: 0; }
   .theme-label { display: none; }
@@ -909,7 +911,7 @@ h3 { font-size: 1.2rem; margin: 0 0 8px; }
   .search input { width: 100%; }
   .slide-nav { display: none; }
   .page { min-height: calc(100svh - 56px); }
-  .detail-head .back { top: 16px; }
+  .detail-head .back { position: static; align-self: flex-start; margin-bottom: 12px; }
   .chapter { padding: 48px 0; }
   .big br, .captions br { display: none; }
   .scrolly { gap: 20px; padding: 32px 0; }
