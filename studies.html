@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Studies · 이진범</title>
+  <meta name="description" content="이진범의 학습 노트와 학습 자료">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="assets/style.css">
+  <script>
+    // Apply a saved theme before first paint to avoid a flash
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="profile" href="./">
+        <span class="name">이진범</span>
+        <span class="handle">JB LEE</span>
+      </a>
+      <nav class="menu">
+        <a href="about.html">
+          <span>About me</span>
+        </a>
+        <a href="https://velog.io/@jinbumlee95/posts" target="_blank" rel="noopener">
+          <span>velog</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="https://github.com/jinbumlee95" target="_blank" rel="noopener">
+          <span>GitHub</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="#projects">
+          <span>Projects</span>
+        </a>
+        <a href="studies.html" class="active">
+          <span>Studies</span>
+        </a>
+      </nav>
+      <button type="button" class="theme-toggle" aria-label="라이트/다크 모드 전환">
+        <span class="theme-icon" aria-hidden="true"></span><span class="theme-label"></span>
+      </button>
+    </aside>
+
+    <main class="content home" id="top">
+      <section id="studies" class="projects view-slide">
+        <div class="section-head">
+          <h2>Studies</h2>
+          <div class="view-tools">
+            <label class="search">
+              <span class="sr-only">제목 검색</span>
+              <input type="search" class="search-input" placeholder="제목 검색" autocomplete="off">
+            </label>
+            <div class="slide-nav">
+              <button type="button" class="slide-btn" data-dir="-1" aria-label="이전 학습 자료">←</button>
+              <button type="button" class="slide-btn" data-dir="1" aria-label="다음 학습 자료">→</button>
+            </div>
+            <div class="view-toggle" role="group" aria-label="보기 방식">
+              <button type="button" data-view="slide" aria-pressed="true">슬라이드</button>
+              <button type="button" data-view="list" aria-pressed="false">리스트</button>
+            </div>
+          </div>
+        </div>
+        <div class="cards" tabindex="0" aria-label="학습 자료 목록">
+          <a class="card" href="notes/pg-llm-1.html">
+            <p class="eyebrow">학습 노트 6편 · 인터랙티브 그림</p>
+            <h3>PG로 LLM 만들기</h3>
+            <p class="subtitle">PostgreSQL 함수만으로 다음 단어를 맞히는 모델을 밑바닥부터</p>
+            <p>내적과 softmax부터 어텐션 두 층으로 만든 유도 헤드, 역전파로 하는 학습, ablation으로 회로 다시 찾기, BPE·멀티헤드·layernorm·중첩까지 직접 돌려 볼 수 있는 그림과 함께 정리했습니다.</p>
+            <ul class="tags"><li>PostgreSQL</li><li>Attention</li><li>역전파</li><li>해석 가능성</li><li>three.js</li></ul>
+            <span class="link">1편부터 읽기 →</span>
+          </a>
+          <a class="card" href="notes/math/">
+            <p class="eyebrow">수학 학습 자료 · 단계별 시각화</p>
+            <h3>수능 수학 시각화</h3>
+            <p class="subtitle">10개년 기출 자료와 움직이는 풀이</p>
+            <p>2017~2026학년도 미적분·기하·확률과 통계 329문항의 풀이를 그래프·도형·표본공간으로 살펴봅니다. 수식 단계를 움직이며 경계와 교점의 변화, 공간에서의 정사영을 확인할 수 있습니다.</p>
+            <ul class="tags"><li>React</li><li>shadcn/ui</li><li>Three.js</li><li>KaTeX</li></ul>
+            <span class="link">학습 자료 열기 →</span>
+          </a>
+        </div>
+        <p class="search-empty" hidden>검색 결과가 없습니다.</p>
+      </section>
+    </main>
+  </div>
+  <script>
+    // Reveal project cards as they scroll into view.
+    // Only cards on screen at load get the staggered intro delay; later ones (slid in) appear at once.
+    const cards = document.querySelectorAll('.card');
+    if ('IntersectionObserver' in window) {
+      let first = true;
+      const io = new IntersectionObserver((entries) => {
+        let n = 0;
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.style.transitionDelay = first ? `${200 + n++ * 120}ms` : '0ms';
+          entry.target.classList.add('visible');
+          io.unobserve(entry.target);
+        });
+        first = false;
+      }, { threshold: 0.15 });
+      cards.forEach((card) => io.observe(card));
+    } else {
+      cards.forEach((card) => card.classList.add('visible'));
+    }
+
+    // Projects / Studies: horizontal slider or blog-style list
+    document.querySelectorAll('#projects, #studies').forEach((section) => {
+      const viewKey = `${section.id}-view`;
+      const track = section.querySelector('.cards');
+      const toggles = section.querySelectorAll('[data-view]');
+      const arrows = section.querySelectorAll('.slide-btn');
+      const setView = (view) => {
+        section.classList.toggle('view-slide', view === 'slide');
+        section.classList.toggle('view-list', view === 'list');
+        toggles.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.view === view)));
+        track.scrollLeft = 0;
+        // List mode shows every card, so reveal any that were still off to the side
+        if (view === 'list') track.querySelectorAll('.card').forEach((c) => { c.style.transitionDelay = '0ms'; c.classList.add('visible'); });
+        try { localStorage.setItem(viewKey, view); } catch (e) {}
+        updateArrows();
+      };
+      const step = () => {
+        const card = track.querySelector('.card');
+        return card ? card.getBoundingClientRect().width + parseFloat(getComputedStyle(track).columnGap || 16) : track.clientWidth;
+      };
+      const updateArrows = () => {
+        const max = track.scrollWidth - track.clientWidth - 2;
+        arrows[0].disabled = track.scrollLeft <= 2;
+        arrows[1].disabled = track.scrollLeft >= max;
+      };
+      arrows.forEach((b) => b.addEventListener('click', () => {
+        track.scrollBy({ left: Number(b.dataset.dir) * step(), behavior: 'smooth' });
+      }));
+      track.addEventListener('scroll', updateArrows, { passive: true });
+
+      // Slide view: vertical wheel scrolls the cards sideways, eased toward a target so it glides.
+      // At either end the page scrolls as usual.
+      let target = 0, raf = 0;
+      const glide = () => {
+        const diff = target - track.scrollLeft;
+        if (Math.abs(diff) < 0.5) { track.scrollLeft = target; raf = 0; return; }
+        track.scrollLeft += diff * 0.18;
+        raf = requestAnimationFrame(glide);
+      };
+      track.addEventListener('wheel', (e) => {
+        if (!section.classList.contains('view-slide')) return;
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // horizontal trackpad swipe: native scroll
+        const max = track.scrollWidth - track.clientWidth;
+        if (!raf) target = track.scrollLeft;
+        if ((e.deltaY < 0 && target <= 1) || (e.deltaY > 0 && target >= max - 1)) return;
+        e.preventDefault();
+        const px = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * track.clientWidth : e.deltaY;
+        target = Math.max(0, Math.min(max, target + px));
+        if (!raf) raf = requestAnimationFrame(glide);
+      }, { passive: false });
+      addEventListener('resize', updateArrows);
+      toggles.forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
+
+      // Title search: the visible title, or aria-label for the lettered-tile title
+      const search = section.querySelector('.search-input');
+      const empty = section.querySelector('.search-empty');
+      const items = [...track.querySelectorAll('.card')].map((card) => {
+        const h = card.querySelector('h3');
+        return { card, title: (h.getAttribute('aria-label') || h.textContent).toLowerCase() };
+      });
+      search.addEventListener('input', () => {
+        const q = search.value.trim().toLowerCase().replace(/\s+/g, ' ');
+        let shown = 0;
+        items.forEach(({ card, title }) => {
+          const hit = !q || title.includes(q);
+          card.hidden = !hit;
+          if (hit) { shown++; card.style.transitionDelay = '0ms'; card.classList.add('visible'); }
+        });
+        empty.hidden = shown > 0;
+        track.scrollLeft = 0;
+        updateArrows();
+      });
+      let saved = 'slide';
+      try { saved = localStorage.getItem(viewKey) || 'slide'; } catch (e) {}
+      setView(saved === 'list' ? 'list' : 'slide');
+    });
+  </script>
+  <script src="assets/theme.js"></script>
+</body>
+</html>
