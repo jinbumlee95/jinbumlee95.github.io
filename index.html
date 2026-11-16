@@ -162,6 +162,23 @@
         track.scrollBy({ left: Number(b.dataset.dir) * step(), behavior: 'smooth' });
       }));
       track.addEventListener('scroll', updateArrows, { passive: true });
+
+      // Slide view: vertical wheel moves one card left/right. At either end the page scrolls as usual.
+      let wheelAcc = 0, wheelLock = 0;
+      track.addEventListener('wheel', (e) => {
+        if (!section.classList.contains('view-slide')) return;
+        if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // horizontal trackpad swipe: native scroll
+        const dir = Math.sign(e.deltaY);
+        const max = track.scrollWidth - track.clientWidth - 2;
+        if ((dir < 0 && track.scrollLeft <= 2) || (dir > 0 && track.scrollLeft >= max)) { wheelAcc = 0; return; }
+        e.preventDefault();
+        if (Date.now() < wheelLock) return;
+        wheelAcc += e.deltaY;
+        if (Math.abs(wheelAcc) < 30) return;
+        track.scrollBy({ left: Math.sign(wheelAcc) * step(), behavior: 'smooth' });
+        wheelAcc = 0;
+        wheelLock = Date.now() + 450;
+      }, { passive: false });
       addEventListener('resize', updateArrows);
       toggles.forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 
