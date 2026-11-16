@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko" data-type="software" data-radius="soft">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>수능 수학 시각화 · 이진범</title>
+    <meta
+      name="description"
+      content="2017~2026학년도 수능 미적분·기하와 벡터·확률과 통계 329문항. 문제별 풀이와 Three.js 시각화, 식 변형·경계·정사영을 직접 움직이는 학습 자료입니다."
+    />
+    <meta name="page-type" content="software" />
+    <meta name="site-kind" content="software" />
+    <meta name="theme-color" content="#fafaf9" />
+    <meta property="og:title" content="수능 수학 시각화 · 이진범" />
+    <meta
+      property="og:description"
+      content="10개년 수능 329문항의 풀이와 단계별 시각화. 그래프·도형·표본공간의 변화를 따라갑니다."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./share.svg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <link rel="stylesheet" href="./portfolio/style.css" />
+    <script>
+      try {
+        const t = localStorage.getItem("theme");
+        if (t) document.documentElement.dataset.theme = t;
+      } catch {}
+    </script>
+    <script type="module" crossorigin src="./assets/index-B93atiG3.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/math-CrGqW7vb.js">
+    <link rel="stylesheet" crossorigin href="./assets/index-DxcWY9eY.css">
+  </head>
+  <body>
+    <a class="math-skip" href="#math-main">본문으로 이동</a>
+    <div class="layout">
+      <!-- Existing jblee.app sidebar markup and stylesheet, retained for the portfolio. -->
+      <aside class="sidebar">
+        <a class="profile" href="https://jblee.app/">
+          <span class="name">이진범</span><span class="handle">JB LEE</span>
+        </a>
+        <nav class="menu" aria-label="포트폴리오">
+          <a href="https://jblee.app/about.html"><span>About me</span></a>
+          <a
+            href="https://velog.io/@jinbumlee95/posts"
+            target="_blank"
+            rel="noopener noreferrer"
+            ><span>velog</span><span class="ext" aria-hidden="true">↗</span></a
+          >
+          <a
+            href="https://github.com/jinbumlee95"
+            target="_blank"
+            rel="noopener noreferrer"
+            ><span>GitHub</span
+            ><span class="ext" aria-hidden="true">↗</span></a
+          >
+          <a href="https://jblee.app/#projects"><span>Projects</span></a>
+        </nav>
+        <button
+          type="button"
+          class="theme-toggle"
+          aria-label="라이트/다크 모드 전환"
+        >
+          <span class="theme-icon" aria-hidden="true"></span
+          ><span class="theme-label"></span>
+        </button>
+      </aside>
+      <main class="content math-content" id="math-main">
+        <div id="root"></div>
+      </main>
+    </div>
+    <script src="./portfolio/theme.js"></script>
+  </body>
+</html>

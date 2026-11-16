@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PG로 LLM 만들기 1편 · 재료 · 이진범</title>
+  <meta name="description" content="PostgreSQL만으로 LLM 만들기 1편: 내적, 행렬, softmax, layernorm, 임베딩, 어텐션 입문">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="../assets/pg-llm.css">
+  <script>
+    // Apply a saved theme before first paint to avoid a flash
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="profile" href="../">
+        <span class="name">이진범</span>
+        <span class="handle">JB LEE</span>
+      </a>
+      <nav class="menu">
+        <a href="../about.html">
+          <span>About me</span>
+        </a>
+        <a href="https://velog.io/@jinbumlee95/posts" target="_blank" rel="noopener">
+          <span>velog</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="https://github.com/jinbumlee95" target="_blank" rel="noopener">
+          <span>GitHub</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="../#projects">
+          <span>Projects</span>
+        </a>
+      </nav>
+      <button type="button" class="theme-toggle" aria-label="라이트/다크 모드 전환">
+        <span class="theme-icon" aria-hidden="true"></span><span class="theme-label"></span>
+      </button>
+    </aside>
+
+    <main class="content post">
+      <article>
+        <a class="back" href="../#projects">← Projects</a>
+        <header class="post-head">
+          <p class="post-meta">학습 노트 · PG로 LLM 만들기 1/6 · 2026.11</p>
+          <h1>1편. 재료: 벡터, 행렬, softmax</h1>
+          <p class="post-sub">파이썬도 GPU도 없이, PostgreSQL 함수만으로 다음 단어를 맞히는 모델을 만든다. 1편은 재료를 모은다. 벡터, 행렬, softmax를 만들고 단어를 숫자로 바꾸는 법까지 본다.</p>
+          <p class="post-source">3D 그림은 드래그해서 돌려 볼 수 있다.</p>
+        </header>
+
+        <nav class="series" aria-label="시리즈 목차">
+          <strong>PG로 LLM 만들기 시리즈</strong>
+          <ol>
+            <li class="now" aria-current="page"><a href="pg-llm-1.html">재료: 벡터, 행렬, softmax</a></li>
+            <li><a href="pg-llm-2.html">어텐션 1층: 직전 단어 기억하기</a></li>
+            <li><a href="pg-llm-3.html">2층과 생성: 모델이 대답하다</a></li>
+            <li><a href="pg-llm-4.html">학습: 숫자를 데이터가 정하게</a></li>
+            <li><a href="pg-llm-5.html">들여다보기: 학습된 회로 다시 찾기</a></li>
+            <li><a href="pg-llm-6.html">키우기: 커지면 생기는 문제들</a></li>
+          </ol>
+        </nav>
+
+        <nav class="toc" aria-label="목차">
+          <strong>목차</strong>
+          <ol>
+            <li><a href="#goal">무엇을 만드나</a></li>
+            <li><a href="#sql">왜 SQL로 만드나</a></li>
+            <li><a href="#traps">조용히 틀리는 함정</a></li>
+            <li><a href="#dot">벡터와 내적</a></li>
+            <li><a href="#matrix">행렬은 기계다</a></li>
+            <li><a href="#softmax">softmax: 점수를 확률로</a></li>
+            <li><a href="#norm">평균, 표준편차, layernorm</a></li>
+            <li><a href="#embed">단어를 벡터로</a></li>
+            <li><a href="#attention">어텐션 미리 보기</a></li>
+            <li><a href="#summary">정리</a></li>
+          </ol>
+        </nav>
+
+        <h2 id="goal">1. 무엇을 만드나</h2>
+        <p>GPT가 하는 일은 하나다. <strong>지금까지 쓴 글을 보고 다음 단어 하나를 고른다.</strong> 고른 단어를 글 끝에 붙이고, 또 다음 단어를 고른다. 이걸 되풀이하면 문장이 되고 답변이 된다.</p>
+        <p>"단계별로 생각해 봐"라고 하면 답이 좋아지는 것도 같은 이유다. 모델이 먼저 써 둔 중간 단계가 다시 입력으로 들어간다. 다음 단어를 고를 근거가 그만큼 늘어난다.</p>
+        <p>여기서 만드는 모델도 똑같이 움직인다. 다만 아는 단어가 8개뿐이다. BOS, sun, moon, fire, hot, cold, big, wet. 목표는 아래 문장에 <code>hot</code>이라고 답하게 만드는 것이다.</p>
+        <pre><code>BOS sun hot moon cold fire big sun → ?</code></pre>
+        <p>앞에서부터 둘씩 끊어 읽으면 sun → hot, moon → cold, fire → big이 나온다. 문장 안에 작은 사전이 숨어 있다. 마지막 단어가 sun이니 답은 hot이다.</p>
+        <p>눈여겨볼 점이 있다. 모델은 "sun 다음은 hot"을 외우지 않는다. 문장 속 사전을 sun → cold로 바꾸면 답도 cold로 바뀌어야 한다.</p>
+        <p>모델 안의 숫자는 그대로 두고, 입력만 읽고 규칙을 알아낸다. 이걸 <strong>문맥 내 학습</strong>이라고 부른다. 이 일을 해내는 회로는 <strong>유도 헤드</strong>라고 한다. 이 시리즈는 그 회로의 가장 작은 모양을 손으로 만든다.</p>
+
+        <h2 id="sql">2. 왜 SQL로 만드나</h2>
+        <p>보통은 파이썬으로 만든다. 더 쉽고, 실무에서도 파이썬을 쓴다. 그래도 SQL을 고른 이유가 세 가지 있다.</p>
+        <ul>
+          <li><strong>중간 과정이 표로 보인다.</strong> 파이썬의 <code>A @ B</code>는 안에서 무엇을 곱하는지 감춘다. SQL은 곱셈 하나하나를 행으로 펼쳐 보여 준다.</li>
+          <li><strong>숨은 게 없다.</strong> 라이브러리 없이 모든 함수를 <code>CREATE FUNCTION</code>으로 직접 만든다.</li>
+          <li><strong>설치가 쉽다.</strong> 도커 컨테이너 하나면 된다.</li>
+        </ul>
+        <p>대신 느리다. 이 모델은 숫자가 수백 개뿐이라 괜찮다. 진짜 크기의 모델은 파이썬에 맡긴다. 실습 환경은 두 줄이면 준비된다.</p>
+        <pre><code>docker run -d --name pgj -e POSTGRES_PASSWORD=secret -p 5432:5432 jangka512/pgj:latest
+docker exec -it pgj psql -U postgres</code></pre>
+        <p>함수는 전부 <code>CREATE OR REPLACE FUNCTION … LANGUAGE sql IMMUTABLE</code>로 만든다. 여러 번 실행해도 에러가 안 난다. <code>IMMUTABLE</code>은 "같은 걸 넣으면 늘 같은 답이 나온다"는 약속이다.</p>
+
+        <h2 id="traps">3. 조용히 틀리는 함정</h2>
+        <p>수학으로 들어가기 전에 알아 둘 게 있다. SQL은 에러 없이 <strong>조용히 틀릴</strong> 때가 있다.</p>
+        <pre><code>SELECT 7/2;                        -- 3   (정수끼리 나누면 소수점을 버린다)
+SELECT 7::float8/2;                -- 3.5
+SELECT 0.1::float8 + 0.2::float8;  -- 0.30000000000000004
+SELECT (ARRAY[10,20,30])[1];       -- 10  (배열은 1번부터 센다)
+SELECT (ARRAY[10,20,30])[99];      -- NULL (에러가 아니다!)</code></pre>
+        <ul>
+          <li>나눗셈에는 <code>::float8</code>을 붙인다.</li>
+          <li>소수는 <code>=</code>로 비교하지 않는다. 계산은 그대로 하고, 맨 끝에서만 <code>round(x::numeric, 3)</code>으로 반올림한다.</li>
+          <li>없는 칸을 꺼내면 NULL이 나오고, <code>sum</code>은 NULL을 건너뛴다. 그래서 길이가 다른 [1,2,3]과 [4,5]를 곱해 더해도 14가 멀쩡히 나온다.</li>
+          <li>SQL은 행 순서를 지켜 주지 않는다. [10,20,30]과 [30,10,20]은 다른 벡터다. 그러니 <code>array_agg</code>에는 늘 <code>ORDER BY</code>를 붙인다.</li>
+        </ul>
+        <p>앞으로 만들 함수는 거의 모양이 같다. 배열을 행으로 <strong>펼치고</strong>(<code>generate_subscripts</code>), 계산하고, 다시 <strong>모은다</strong>(<code>sum</code>, <code>array_agg</code>).</p>
+        <p>다 만들면 답을 미리 아는 값을 넣어서 확인한다. 0이나 1, 단위행렬 같은 값이다.</p>
+
+        <h2 id="dot">4. 벡터와 내적</h2>
+        <p>숫자 여러 개를 한 줄로 묶고 자리마다 뜻을 붙이면 벡터가 된다. 학생 한 명을 [국어, 수학, 체육] 점수로 나타낸다고 하자. 그러면 1번 자리는 늘 국어여야 한다.</p>
+        <p>LLM도 단어를 이렇게 숫자 여러 개로 나타낸다. 비슷한 단어는 비슷한 숫자를 갖게 한다. 그러면 "비슷하다"를 계산으로 따질 수 있다.</p>
+        <p>숫자가 2개인 벡터는 화살표로 그릴 수 있다. 화살표에는 <strong>방향</strong>과 <strong>길이</strong>가 있다. [3,2]와 [6,4]는 같은 쪽을 가리키고 길이만 2배 다르다. LLM에서는 보통 방향이 뜻을, 길이가 확신의 세기를 나타낸다.</p>
+        <p>두 벡터의 <strong>내적</strong>은 같은 자리끼리 곱해서 모두 더한 값이다.</p>
+        <pre><code>[1, 2, 3] · [4, 5, 6]
+= 1×4 + 2×5 + 3×6
+= 4 + 10 + 18
+= 32</code></pre>
+        <p>장바구니 총액과 같은 계산이다. 가격 × 개수를 다 더한다. SQL로 쓰면 이렇다.</p>
+        <pre><code>CREATE OR REPLACE FUNCTION dot(a float8[], b float8[]) RETURNS float8 AS $$
+  SELECT COALESCE(SUM(a[i] * b[i]), 0) FROM generate_subscripts(a, 1) i;
+$$ LANGUAGE sql IMMUTABLE;</code></pre>
+        <p>내적의 뜻은 화살표로 보면 쉽다. b 위에서 손전등을 비추면 a 위에 b의 <strong>그림자</strong>가 생긴다. 내적은 "a의 길이 × 그림자 길이"다.</p>
+        <p>같은 쪽을 가리키면 그림자가 길다. 직각이면 그림자가 점이 되어 0이다. 반대쪽이면 그림자가 뒤로 생겨 음수가 된다. 아래 그림에서 b를 직접 돌려 보자. 초록 또는 빨강 막대가 그림자다.</p>
+        <figure class="fig">
+          <div class="viz" id="viz-dot"></div>
+          <div class="fig-controls">
+            <div class="row">
+              <button type="button" class="chip-btn" data-angle="0">같은 방향</button>
+              <button type="button" class="chip-btn" data-angle="90">직각</button>
+              <button type="button" class="chip-btn" data-angle="180">반대 방향</button>
+            </div>
+            <label><span>사이 각도 <b id="dot-angle-val">40°</b></span><input type="range" id="dot-angle" min="0" max="180" value="40"></label>
+            <label><span>b의 길이 <b id="dot-len-val">2.0</b></span><input type="range" id="dot-len" min="0.5" max="3" step="0.1" value="2"></label>
+          </div>
+          <p class="readout" id="dot-readout"></p>
+          <figcaption><span id="dot-verdict"></span></figcaption>
+        </figure>
+        <p>규칙을 표로 정리하면 이렇다.</p>
+        <table>
+          <thead><tr><th>두 화살표</th><th>예</th><th>내적</th></tr></thead>
+          <tbody>
+            <tr><td>같은 쪽</td><td>[1,1] · [2,2]</td><td>4 (큰 양수)</td></tr>
+            <tr><td>직각, 서로 상관없음</td><td>[1,0] · [0,3]</td><td>0</td></tr>
+            <tr><td>반대쪽</td><td>[1,1] · [−2,−2]</td><td>−4 (큰 음수)</td></tr>
+          </tbody>
+        </table>
+        <p>한마디로 <mark>내적은 <strong>두 벡터가 얼마나 닮았는지 재는 자</strong>다</mark>.</p>
+        <p>친구와 같은 쪽으로 상자를 밀면 힘이 합쳐진다. 직각으로 밀면 도움도 방해도 안 된다. 반대로 밀면 서로 힘을 깎아 먹는다.</p>
+
+        <h3>내적으로 닮은 친구 찾기</h3>
+        <p>내 점수가 [9, 2, 7]이다. 철수 [9,3,6], 영희 [2,9,3], 민수 [8,2,8] 중 누가 가장 닮았을까?</p>
+        <p>내적을 구하면 민수 132, 철수 129, 영희 57이 나온다. 민수가 가장 닮았고, 영희는 잘하는 과목이 정반대다.</p>
+        <figure class="fig">
+          <div class="viz" id="viz-people"></div>
+          <ul class="people" id="people-list"></ul>
+          <p class="readout" id="people-readout"></p>
+          <figcaption>이름을 누르면 그 벡터만 진하게 보인다.</figcaption>
+        </figure>
+        <p>길이는 빼고 방향만 비교하는 방법도 있다. <strong>코사인 유사도</strong>라고 부른다. 이걸로 재면 철수와 민수가 둘 다 0.993쯤으로 거의 같다. 내적은 방향뿐 아니라 길이도 함께 본다.</p>
+        <p>이 계산이 나중에 어텐션의 한가운데에 들어간다. "지금 단어"와 "앞 단어"를 내적하면 둘이 얼마나 관련 있는지 숫자 하나로 나온다. 그 숫자가 "저기를 얼마나 쳐다볼지"를 정한다.</p>
+
+        <h2 id="matrix">5. 행렬은 기계다</h2>
+        <p>벡터가 사물함 한 줄이면, 행렬은 사물함 여러 줄이다. 그냥 표다.</p>
+        <p>PostgreSQL에서는 <code>ARRAY[[1,2,3],[4,5,6]]</code>처럼 대괄호를 두 겹 쓴다. 꺼낼 때는 <code>m[행][열]</code> 순서로 꺼낸다. 여기서도 없는 칸은 에러 없이 NULL이다.</p>
+        <p>그런데 행렬은 숫자표로 끝나지 않는다. <strong>벡터를 넣으면 다른 벡터가 나오는 기계</strong>다. 계산은 간단하다. 행마다 내적을 한 번씩 한다.</p>
+        <pre><code>[[2, 0],     [10,      1행 [2,0]·[10,20] = 20
+ [1, 3]]  ×   20]  →   2행 [1,3]·[10,20] = 70   →  [20, 70]</code></pre>
+        <p>나오는 벡터의 칸 수는 행의 개수와 같다. 그래서 행이 적은 행렬에 넣으면 벡터가 짧아진다.</p>
+        <p>아래 그림은 같은 계산을 작게 줄여 [1, 2] → [2, 7]로 보여 준다. 흐린 격자가 원래 공간, 파란 격자가 기계를 지난 공간이다.</p>
+        <figure class="fig">
+          <div class="viz tall" id="viz-mat"></div>
+          <div class="fig-controls">
+            <div class="row" id="mat-presets">
+              <button type="button" class="chip-btn on" data-m="2,0,1,3">[[2,0],[1,3]]</button>
+              <button type="button" class="chip-btn" data-m="1,0,0,1">단위행렬</button>
+              <button type="button" class="chip-btn" data-m="0,1,1,0">자리바꿈</button>
+              <button type="button" class="chip-btn" data-m="2,0,0,2">2배</button>
+            </div>
+          </div>
+          <p class="readout" id="mat-readout"></p>
+          <figcaption id="mat-note"></figcaption>
+        </figure>
+        <p>SQL에서는 칸마다 곱한 다음, <code>GROUP BY i</code>로 행 번호가 같은 것끼리 더한다. 이 <code>matvec</code>을 시리즈에서 가장 많이 쓴다.</p>
+        <pre><code>CREATE OR REPLACE FUNCTION matvec(m float8[], v float8[]) RETURNS float8[] AS $$
+  SELECT array_agg(s ORDER BY i) FROM (
+    SELECT i, COALESCE(SUM(m[i][j] * v[j]), 0) AS s
+    FROM generate_subscripts(m, 1) i, generate_subscripts(m, 2) j
+    GROUP BY i) t;
+$$ LANGUAGE sql IMMUTABLE;</code></pre>
+
+        <h3>0과 1로 된 행렬은 배선도다</h3>
+        <ul>
+          <li><strong>단위행렬</strong> [[1,0,0],[0,1,0],[0,0,1]]은 넣은 걸 그대로 돌려준다. 행마다 있는 1이 자기 자리 값만 통과시킨다.</li>
+          <li>1의 자리를 바꾼 [[0,1,0],[1,0,0],[0,0,1]]은 [5,6,7]을 [6,5,7]로 바꾼다. 행마다 있는 1이 "몇 번 칸을 가져올지" 고르는 스위치다.</li>
+          <li>2행 4열짜리 [[0,1,0,0],[0,0,0,1]]은 [10,20,30,40]에서 2번과 4번만 뽑아 [20,40]을 만든다. 나중에 32칸에서 필요한 8칸만 뽑을 때 이걸 쓴다.</li>
+        </ul>
+        <p><mark>이게 이 모델 가중치의 정체다</mark>. 진짜 GPT의 가중치는 0.0382, −0.1174 같은 숫자라 읽을 수가 없다.</p>
+        <p>이 모델은 가중치를 0과 1로 직접 넣는다. 그래서 숫자 하나하나가 "이 칸 값을 저 칸으로 옮겨라"라는 뜻을 갖는다.</p>
+
+        <h3>행렬끼리 곱하기, 뒤집기</h3>
+        <p>기계 두 대를 줄지어 세우면 미리 한 대로 합칠 수 있다. 그게 행렬곱이다. 결과의 각 칸은 "A의 한 행"과 "B의 한 열"을 내적한 값이다.</p>
+        <pre><code>[[1, 2],     [[5, 6],      [[1×5 + 2×7, 1×6 + 2×8],     [[19, 22],
+ [3, 4]]  ×   [7, 8]]  =    [3×5 + 4×7, 3×6 + 4×8]]  =   [43, 50]]</code></pre>
+        <p>왼쪽 위 19는 [1,2]와 [5,7]을 내적한 값이다(5 + 14). <code>matmul</code>은 <code>matvec</code>과 거의 같고, GROUP BY만 두 개(행, 열)로 늘어난다.</p>
+        <p>마지막 도구는 <strong>전치</strong>다. 표를 대각선으로 뒤집어 행과 열을 맞바꾼다. 2×3 행렬이 3×2가 된다.</p>
+
+        <h2 id="softmax">6. softmax: 점수를 확률로</h2>
+        <p>어텐션은 "어디를 얼마나 볼지" 정해야 한다. 그런데 내적으로 나온 점수는 3.2, −1.5, 0.7처럼 생겼다. 음수도 있고, 다 더해도 1이 안 된다. "2번을 −150% 본다"는 말이 되지 않는다.</p>
+        <p>필요한 건 80%, 5%, 15%처럼 더하면 100%가 되는 모양이다. softmax가 이걸 두 단계로 만든다.</p>
+        <ol>
+          <li><strong>exp를 씌워 전부 양수로 만든다.</strong> exp는 늘 양수를 내놓는다. 넣는 값이 1 커질 때마다 2.718배씩 커진다. 점수 순서도 그대로 남는다.</li>
+          <li><strong>합계로 나눠 합을 1로 맞춘다.</strong> 득표수를 전체 투표수로 나눠 지지율을 내는 것과 같다.</li>
+        </ol>
+        <pre><code>점수          [1,     2,     3    ]
+최댓값 빼기    [-2,    -1,    0    ]
+exp           [0.135, 0.368, 1.000]   합 1.503
+합으로 나누기  [0.090, 0.245, 0.665]   합 1</code></pre>
+        <p>중간에 "최댓값 빼기"가 끼어 있다. exp는 너무 빨리 커지기 때문이다. <code>exp(1000)</code>은 컴퓨터가 담을 수 있는 크기를 넘어 에러가 난다. 최댓값을 먼저 빼면 가장 큰 값이 exp(0) = 1이 되어 절대 넘치지 않는다.</p>
+        <p>그래도 답은 안 바뀐다. 반 전체가 10점씩 더 받아도 등수는 그대로다. <mark>softmax도 점수 사이의 <strong>차이</strong>만 본다</mark>. PyTorch 같은 도구도 안에서 똑같이 한다.</p>
+        <figure class="fig">
+          <div class="viz" id="viz-softmax"></div>
+          <div class="fig-controls">
+            <div class="row" id="sm-presets">
+              <button type="button" class="chip-btn on" data-x="1,2,3">[1, 2, 3]</button>
+              <button type="button" class="chip-btn" data-x="1000,1001,1002">[1000, 1001, 1002]</button>
+              <button type="button" class="chip-btn" data-x="3.2,-1.5,0.7">[3.2, −1.5, 0.7]</button>
+            </div>
+            <label><span>점수 배율 ×<b id="sm-k-val">1</b></span><input type="range" id="sm-k" min="1" max="10" step="0.5" value="1"></label>
+          </div>
+          <table class="sm-table" id="sm-table"></table>
+          <figcaption id="sm-note"></figcaption>
+        </figure>
+        <p>[1, 2, 3]을 넣으면 0.090, 0.245, 0.665가 나온다. [1000, 1001, 1002]를 넣어도 똑같다.</p>
+        <p>배율을 10으로 올려 [10, 20, 30]을 만들면 0, 0, 1이 된다. 점수 차이가 벌어질수록 1등이 다 가져간다. 이 모델은 이 성질을 일부러 쓴다. 어텐션 점수에 10을 곱해서 여기저기 흐릿하게 보지 않고 딱 한 곳만 보게 한다.</p>
+
+        <h2 id="norm">7. 평균, 표준편차, layernorm</h2>
+        <p>A반 점수는 [50, 50, 50, 50], B반은 [10, 30, 70, 90]이다. 평균은 둘 다 50이다. 그런데 A반은 모두 똑같고 B반은 들쭉날쭉하다.</p>
+        <p>평균은 한가운데만 알려 준다. 얼마나 퍼져 있는지는 모른다. 그걸 재는 게 표준편차다.</p>
+        <ol>
+          <li>평균을 구한다. [10, 20, 30, 40] → 25</li>
+          <li>각 값에서 평균을 뺀다. → −15, −5, 5, 15. 그냥 더하면 늘 0이라 쓸 수가 없다.</li>
+          <li>제곱해서 음수를 없앤다. → 225, 25, 25, 225</li>
+          <li>평균을 내고 루트를 씌워 원래 단위로 돌린다. → √125 ≈ 11.18</li>
+        </ol>
+        <p>PostgreSQL의 <code>stddev_pop</code>을 써도 같은 값이 나온다. A반은 0, B반은 31.6쯤이다. "표준편차가 0이면 다 똑같다"만 기억해도 충분하다.</p>
+        <p>이 도구로 <strong>layernorm</strong>을 만든다. 트랜스포머는 층을 지날 때마다 벡터에 값을 계속 더한다. 그러다 보면 값이 점점 커지거나 0으로 사라진다. 복사본을 또 복사하면 점점 진해지거나 흐려지는 것과 같다.</p>
+        <p>layernorm은 층마다 평균을 빼서 가운데를 0으로 맞춘다. 그리고 표준편차로 나눠서 퍼진 정도를 1로 맞춘다.</p>
+        <pre><code>각 값마다:  (값 − 평균) ÷ 표준편차</code></pre>
+        <figure class="fig">
+          <div class="spread" id="norm-fig">
+            <div class="lane">
+              <p class="lane-name">원래 값<small>μ = 25, σ ≈ 11.18</small></p>
+              <div class="track">
+                <span class="band" style="--l: 27.64%; --w: 44.72%"></span><span class="lmid" style="--x: 50%"></span>
+                <span class="lpt" style="--x: 20%">10</span><span class="lpt" style="--x: 40%">20</span><span class="lpt" style="--x: 60%">30</span><span class="lpt" style="--x: 80%">40</span>
+                <span class="axis" style="left: 0%">0</span><span class="axis" style="left: 50%">25</span><span class="axis" style="left: 100%">50</span>
+              </div>
+            </div>
+            <div class="lane">
+              <p class="lane-name">① 평균 빼기<small>합이 0</small></p>
+              <div class="track">
+                <span class="band" style="--l: 22.05%; --w: 55.9%"></span><span class="lmid" style="--x: 50%"></span>
+                <span class="lpt" style="--x: 12.5%">−15</span><span class="lpt" style="--x: 37.5%">−5</span><span class="lpt" style="--x: 62.5%">5</span><span class="lpt" style="--x: 87.5%">15</span>
+                <span class="axis" style="left: 0%">−20</span><span class="axis" style="left: 50%">0</span><span class="axis" style="left: 100%">20</span>
+              </div>
+            </div>
+            <div class="lane">
+              <p class="lane-name">② σ로 나누기<small>layernorm 결과</small></p>
+              <div class="track">
+                <span class="band" style="--l: 25%; --w: 50%"></span><span class="lmid" style="--x: 50%"></span>
+                <span class="lpt" style="--x: 16.45%">−1.342</span><span class="lpt" style="--x: 38.83%">−0.447</span><span class="lpt" style="--x: 61.18%">0.447</span><span class="lpt" style="--x: 83.55%">1.342</span>
+                <span class="axis" style="left: 0%">−2</span><span class="axis" style="left: 50%">0</span><span class="axis" style="left: 100%">2</span>
+              </div>
+            </div>
+          </div>
+          <figcaption>[10, 20, 30, 40]이 layernorm을 거치는 과정. 음영은 평균 ± 표준편차 구간이다.</figcaption>
+        </figure>
+        <p>10배로 키운 [100, 200, 300, 400]을 넣어도 결과는 똑같이 −1.342, −0.447, 0.447, 1.342다. <mark>얼마나 큰 값이 들어와도 같은 크기로 돌려놓는다</mark>.</p>
+        <p>표준편차가 0이면 0으로 나누게 되니, 아주 작은 수를 하나 더해서 막는다. 이 모델은 층이 2개뿐이라 layernorm을 실제로 쓰지 않는다. 그래도 진짜 트랜스포머에는 꼭 들어가는 부품이라 미리 만들어 둔다.</p>
+
+        <h2 id="embed">8. 단어를 벡터로</h2>
+        <p>지금까지 만든 도구는 숫자만 다룬다. 그래서 단어를 숫자로 바꿔야 한다. 두 단계를 거친다.</p>
+        <ol>
+          <li>단어마다 번호를 붙인다. BOS = 1, sun = 2, moon = 3, …, wet = 8</li>
+          <li>번호를 벡터로 바꾼다. sun = 2 → [0,1,0,0,0,0,0,0]</li>
+        </ol>
+        <p>번호만으로는 계산이 안 된다. sun + moon = 2 + 3 = 5 = hot? 말이 안 된다.</p>
+        <p>그래서 자기 자리만 1이고 나머지는 0인 벡터를 쓴다. 이걸 <strong>원핫</strong>이라고 부른다. 원핫끼리 내적하면 쓸모 있는 결과가 나온다.</p>
+        <pre><code>sun · sun  = [0,1,0,0,0,0,0,0] · [0,1,0,0,0,0,0,0] = 1   (같은 단어)
+sun · moon = [0,1,0,0,0,0,0,0] · [0,0,1,0,0,0,0,0] = 0   (다른 단어)</code></pre>
+        <p><mark>내적 한 번으로 두 단어가 같은지 알 수 있다</mark>. 3편의 회로가 이걸 써서 "지금 단어와 같은 단어가 앞에 있었나?"를 찾는다. 진짜 GPT는 통째 단어 대신 단어 조각을 쓴다. 원리는 같다.</p>
+
+        <h3>자리 정보도 필요하다</h3>
+        <p>어텐션에는 약점이 하나 있다. 단어를 앞에서부터 차례로 읽지 않고, 한꺼번에 늘어놓고 본다. 그래서 <strong>순서를 모른다</strong>. 시험 문제를 다 오려서 봉투에 넣고 흔든 것과 같다.</p>
+        <p>단어 원핫만 넣으면 "sun hot moon"과 "moon hot sun"을 구별하지 못한다. 둘 다 같은 벡터 3개로 이뤄져 있기 때문이다.</p>
+        <p>그래서 벡터에 "몇 번째 자리인지"도 함께 적는다. 이 모델은 벡터를 32칸으로 만들고, 8칸씩 맡을 일을 정해 둔다.</p>
+        <table>
+          <thead><tr><th>칸</th><th>담는 것</th><th>누가 채우나</th></tr></thead>
+          <tbody>
+            <tr><td>1–8</td><td>지금 단어 (원핫)</td><td><code>embed()</code></td></tr>
+            <tr><td>9–16</td><td>바로 앞 단어</td><td>1층 어텐션 (2편)</td></tr>
+            <tr><td>17–24</td><td>자리 (원핫, 16 + 자리 번호)</td><td><code>embed()</code></td></tr>
+            <tr><td>25–32</td><td>정답</td><td>2층 어텐션 (3편)</td></tr>
+          </tbody>
+        </table>
+        <p>예를 들어 3번 자리의 hot(번호 5)은 5번 칸과 19번 칸(16 + 3)만 1이다. 나머지 30칸은 0이다.</p>
+        <p>아래 그림은 예시 문장 8자리를 <code>embed()</code>에 넣은 결과다. 줄 위에 마우스를 올리고, 자리 칸도 꺼 보자.</p>
+        <p>2번과 8번 자리는 둘 다 sun이라 단어 칸(2번)이 같다. 그래도 자리 칸이 18, 24로 달라서 구별된다. 자리 칸을 끄면 두 줄이 완전히 똑같아진다.</p>
+        <figure class="fig">
+          <div class="viz tall" id="viz-embed"></div>
+          <div class="fig-controls">
+            <div class="row">
+              <button type="button" class="chip-btn on" id="embed-pos">위치 칸 켜기 (embed)</button>
+              <button type="button" class="chip-btn" id="embed-nopos">위치 칸 끄기 (embed_nopos)</button>
+            </div>
+          </div>
+          <p class="readout" id="embed-readout"></p>
+          <figcaption>8자리 × 32칸 = 256칸 중 켜진 칸은 자리마다 2개, 모두 16개다.</figcaption>
+        </figure>
+        <p>칸을 이렇게 딱 나눈 건 배우기 쉽게 하려는 설계다. 1층이 9–16칸에 앞 단어를 적는 동안, 1–8칸의 지금 단어는 그대로 남아 있어야 한다.</p>
+        <p>그래야 2층이 두 구역을 함께 보고 "지금 단어가 sun이니, 앞 단어가 sun이었던 자리를 찾자"를 할 수 있다. 진짜 GPT는 수백 칸에 정보가 뒤섞여 있다. 어느 칸이 무슨 뜻인지 아무도 모른다.</p>
+
+        <h2 id="attention">9. 어텐션 미리 보기</h2>
+        <p>"어제 산 사과를 오늘 아침에 <strong>먹었다</strong>." 무엇을 먹었는지는 "먹었다"에 적혀 있지 않다. 앞으로 돌아가 "사과를"을 찾아야 한다.</p>
+        <p>그런데 지금까지 만든 함수는 벡터 하나를 받아 벡터 하나를 내놓을 뿐이다. 옆 단어를 볼 방법이 없다. 이 벽을 넘게 해 주는 게 어텐션이다. 사람이 하는 일을 그대로 따라 한다.</p>
+        <ol>
+          <li><strong>점수 매기기</strong>: 앞 자리마다 얼마나 관련 있는지 잰다. (<code>dot</code>)</li>
+          <li><strong>확률로 바꾸기</strong>: 가장 관련 있는 곳을 고른다. (<code>softmax</code>)</li>
+          <li><strong>섞어서 가져오기</strong>: 확률만큼 정보를 가져와 붙인다. (<code>vec_scale</code>, <code>vec_add</code>)</li>
+        </ol>
+        <p>새로 배울 계산이 하나도 없다. 여기서 q, k, v라는 세 가지가 나온다. 도서관에 빗대면 쉽다.</p>
+        <ul>
+          <li><strong>Query(질문)</strong>: "요리책 어디 있어요?" 지금 자리가 던지는 질문이다. 1층에서는 "내 바로 앞자리는 어디지?", 2층에서는 "나와 같은 단어가 앞에 있었나?"가 된다.</li>
+          <li><strong>Key(이름표)</strong>: 책장마다 붙은 "요리", "역사" 같은 이름표다. 모든 자리가 하나씩 내건다. 질문과 맞대어 내적으로 점수를 매긴다.</li>
+          <li><strong>Value(내용물)</strong>: 실제로 건네줄 책이다. 이름표와 내용물은 달라도 된다. Key는 "나는 2번 자리다"(자리), Value는 "내 단어는 sun이다"(단어)일 수 있다. 자리로 찾아서 단어를 가져오는 셈이다.</li>
+        </ul>
+        <p>q, k, v를 따로 준비하지는 않는다. 자리마다 가진 벡터 하나를 서로 다른 행렬 세 개(W_q, W_k, W_v)에 넣어 만든다. 같은 재료에서 질문, 이름표, 내용물을 하나씩 뽑아낸다.</p>
+        <p>진짜 GPT는 이 W들을 데이터로 배운다. 이 모델은 0과 1 배선도로 직접 넣는다. 진짜 모델은 768칸에서 64칸짜리 q를 뽑는다. 이 모델도 32칸에서 8칸짜리 q를 뽑는다. 앞에서 본 "골라서 줄이기"다.</p>
+        <p>재료는 여기까지다. 2편에서는 q, k, v를 실제 0과 1 행렬로 만들어 "바로 앞 단어를 기억하는" 1층을 조립한다.</p>
+
+        <h2 id="summary">10. 정리</h2>
+        <p>1편에서 만든 함수다. 2편의 어텐션은 전부 이 재료로 만든다.</p>
+        <table>
+          <thead><tr><th>함수</th><th>하는 일</th></tr></thead>
+          <tbody>
+            <tr><td><code>show(v)</code></td><td>배열을 표로 보기 좋게 보여 준다</td></tr>
+            <tr><td><code>dot(a, b)</code></td><td>내적. 얼마나 닮았는지 잰다</td></tr>
+            <tr><td><code>vec_add(a, b)</code></td><td>벡터끼리 더한다</td></tr>
+            <tr><td><code>vec_scale(a, s)</code></td><td>벡터 크기를 늘리거나 줄인다</td></tr>
+            <tr><td><code>row_of(m, t)</code></td><td>행렬에서 한 행을 꺼낸다</td></tr>
+            <tr><td><code>matvec(m, v)</code></td><td>행렬 × 벡터</td></tr>
+            <tr><td><code>matmul(a, b)</code></td><td>행렬 × 행렬</td></tr>
+            <tr><td><code>transpose(m)</code></td><td>행과 열을 맞바꾼다</td></tr>
+            <tr><td><code>softmax(v)</code></td><td>점수를 확률로 바꾼다</td></tr>
+            <tr><td><code>layernorm(v)</code></td><td>값의 크기를 고르게 맞춘다</td></tr>
+            <tr><td><code>onehot(id, n)</code></td><td>단어 번호를 벡터로 바꾼다</td></tr>
+          </tbody>
+        </table>
+        <p>꼭 기억할 여덟 가지.</p>
+        <ol>
+          <li>7/2는 3이다. 정수끼리 나누면 소수점을 버린다. 나눗셈에는 <code>::float8</code>을 붙인다.</li>
+          <li>0.1 + 0.2는 0.3이 아니다. 끝자리가 조금 달라도 정상이다.</li>
+          <li>배열은 1번부터 센다. 없는 칸은 에러 대신 NULL이 조용히 나온다.</li>
+          <li>펼치고, 계산하고, 모은다. 모든 함수가 이 모양이다. <code>array_agg</code>에는 늘 ORDER BY를 붙인다.</li>
+          <li>내적은 닮은 정도를 잰다. 같은 쪽이면 크고, 상관없으면 0, 반대면 음수다.</li>
+          <li>0과 1로 된 행렬은 배선도다. 값을 어디로 보낼지 고르는 스위치판이다.</li>
+          <li>softmax는 점수 차이가 클수록 한쪽으로 쏠린다.</li>
+          <li>표준편차는 빼기 → 제곱 → 평균 → 루트 순서로 구한다.</li>
+        </ol>
+        <nav class="post-pager" aria-label="이전 글, 다음 글">
+          <a class="next" href="pg-llm-2.html"><small>다음 글</small>2편. 어텐션 1층: 직전 단어 기억하기 →</a>
+        </nav>
+      </article>
+    </main>
+  </div>
+  <script defer src="../assets/pg-llm-code.js"></script>
+  <script src="../assets/theme.js"></script>
+  <script type="module" src="../assets/pg-llm.js"></script>
+</body>
+</html>

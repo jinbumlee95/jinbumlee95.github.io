@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PG로 LLM 만들기 2편 · 어텐션 1층 · 이진범</title>
+  <meta name="description" content="PostgreSQL만으로 LLM 만들기 2편: 골라내기 행렬, 어텐션 점수, 배율과 마스킹, 잔차 연결, 직전 단어를 기억하는 1층">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="../assets/pg-llm.css">
+  <script>
+    // Apply a saved theme before first paint to avoid a flash
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="profile" href="../">
+        <span class="name">이진범</span>
+        <span class="handle">JB LEE</span>
+      </a>
+      <nav class="menu">
+        <a href="../about.html">
+          <span>About me</span>
+        </a>
+        <a href="https://velog.io/@jinbumlee95/posts" target="_blank" rel="noopener">
+          <span>velog</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="https://github.com/jinbumlee95" target="_blank" rel="noopener">
+          <span>GitHub</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="../#projects">
+          <span>Projects</span>
+        </a>
+      </nav>
+      <button type="button" class="theme-toggle" aria-label="라이트/다크 모드 전환">
+        <span class="theme-icon" aria-hidden="true"></span><span class="theme-label"></span>
+      </button>
+    </aside>
+
+    <main class="content post">
+      <article>
+        <a class="back" href="../#projects">← Projects</a>
+        <header class="post-head">
+          <p class="post-meta">학습 노트 · PG로 LLM 만들기 2/6 · 2026.11</p>
+          <h1>2편. 어텐션 1층: 직전 단어 기억하기</h1>
+          <p class="post-sub">1편의 재료로 어텐션 한 층을 조립한다. 목표는 하나다. 모든 자리가 바로 앞자리를 보고 그 단어를 받아 적게 만든다. 학습은 하지 않는다. 0과 1로 된 행렬 네 개면 충분하다.</p>
+          <p class="post-source">그래프와 표에 마우스를 올리면 값이 보이고, 3D 그림은 드래그해서 돌려 볼 수 있다.</p>
+        </header>
+
+        <nav class="series" aria-label="시리즈 목차">
+          <strong>PG로 LLM 만들기 시리즈</strong>
+          <ol>
+            <li><a href="pg-llm-1.html">재료: 벡터, 행렬, softmax</a></li>
+            <li class="now" aria-current="page"><a href="pg-llm-2.html">어텐션 1층: 직전 단어 기억하기</a></li>
+            <li><a href="pg-llm-3.html">2층과 생성: 모델이 대답하다</a></li>
+            <li><a href="pg-llm-4.html">학습: 숫자를 데이터가 정하게</a></li>
+            <li><a href="pg-llm-5.html">들여다보기: 학습된 회로 다시 찾기</a></li>
+            <li><a href="pg-llm-6.html">키우기: 커지면 생기는 문제들</a></li>
+          </ol>
+        </nav>
+
+        <nav class="toc" aria-label="목차">
+          <strong>목차</strong>
+          <ol>
+            <li><a href="#goal">1층이 할 일</a></li>
+            <li><a href="#selmat">골라내기 행렬 만들기</a></li>
+            <li><a href="#scores">점수표 만들기</a></li>
+            <li><a href="#mask">배율과 마스킹</a></li>
+            <li><a href="#mix">값 섞기</a></li>
+            <li><a href="#residual">잔차 연결</a></li>
+            <li><a href="#layer1">1층 완성</a></li>
+            <li><a href="#summary">정리</a></li>
+          </ol>
+        </nav>
+        <h2 id="goal">1. 1층이 할 일</h2>
+        <p>1층의 일은 한 문장이다. <strong>모든 자리가 바로 앞자리를 보고, 그 자리의 단어를 자기 9–16칸에 적어 둔다.</strong> 3번 자리는 2번을 보고, 8번 자리는 7번을 본다.</p>
+        <p>이렇게 "바로 앞 단어"를 적어 두면 다음 층이 그 기록을 뒤져 답을 찾는다. 찾는 건 3편에서 하고, 여기서는 적는 것까지 한다.</p>
+        <p>짝 찾기 놀이로 생각하면 쉽다. 학생들이 한 줄로 서 있다. 다들 목에 <strong>번호표</strong>(자기 번호)를 걸고, 손에는 <strong>쪽지</strong>(자기 번호 − 1)를 들었다. "내 쪽지와 같은 번호표를 찾아라"라고 하면 누구나 바로 앞사람을 찾는다.</p>
+        <table>
+          <thead><tr><th>놀이</th><th>어텐션</th><th>만드는 법</th></tr></thead>
+          <tbody>
+            <tr><td>손에 든 쪽지</td><td>Query</td><td>자리 칸을 한 칸 밀어서 가져온다</td></tr>
+            <tr><td>목에 건 번호표</td><td>Key</td><td>자리 칸을 그대로 가져온다</td></tr>
+            <tr><td>같은지 확인</td><td>내적</td><td>원핫끼리는 같을 때만 1이다</td></tr>
+          </tbody>
+        </table>
+        <p>재료는 이미 있다. <code>embed()</code>가 17–24칸에 자리를 원핫으로 적어 뒀다. 3번 자리라면 19번 칸이 켜져 있다.</p>
+        <p>k는 자리 칸을 그대로 꺼낸다(3번째 칸이 1). q는 한 칸 밀어서 꺼낸다(2번째 칸이 1). 그러면 3번 자리의 q와 2번 자리의 k가 같은 칸에서 1이 된다. 다른 자리와는 겹치는 칸이 없어 점수가 0이다.</p>
+
+        <h2 id="selmat">2. 골라내기 행렬 만들기</h2>
+        <p>"그대로 가져오기"도 "한 칸 밀어서 가져오기"도 0과 1로 된 골라내기 행렬이다. 32칸짜리 행렬을 매번 손으로 쓸 수는 없다. 그래서 행렬을 찍어 내는 함수를 만든다. 규칙은 한 줄이다.</p>
+        <pre><code>나오는 r번 칸에는 들어온 (offs + r)번 칸을 넣는다. 단, r이 lo..hi 사이일 때만.</code></pre>
+        <pre><code>CREATE OR REPLACE FUNCTION sel_mat(rows int, cols int, offs int, lo int, hi int)
+RETURNS float8[] AS $$
+  SELECT array_agg(row ORDER BY r) FROM (
+    SELECT r, array_agg(CASE WHEN r BETWEEN lo AND hi AND c = offs + r
+                             THEN 1 ELSE 0 END::float8 ORDER BY c) AS row
+    FROM generate_series(1,rows) r, generate_series(1,cols) c GROUP BY r) t;
+$$ LANGUAGE sql IMMUTABLE;</code></pre>
+        <p>몸통은 <code>CASE WHEN … THEN 1 ELSE 0</code> 하나다. 1편의 <code>onehot</code>과 같은 모양이다.</p>
+        <p><code>lo</code>, <code>hi</code>가 있는 이유는 벡터를 구역으로 나눠 쓰기 때문이다. 남의 구역을 건드리면 안 된다. 큰 행렬로 바로 가지 말고 작은 예로 먼저 확인한다.</p>
+        <pre><code>SELECT matvec(sel_mat(4,6,2,1,3), ARRAY[10,20,30,40,50,60]::float8[]);
+-- {30,40,50,0}   3·4·5번째 값이 앞으로 오고, 4행은 hi=3이라 0</code></pre>
+        <p>이 함수 한 줄씩으로 1층의 가중치를 전부 정한다.</p>
+        <table>
+          <thead><tr><th>행렬</th><th>정의</th><th>하는 일</th></tr></thead>
+          <tbody>
+            <tr><td><code>w_q1</code></td><td><code>sel_mat(8,32,17,1,7)</code></td><td>자리를 한 칸 밀어 "내 앞자리는 어디지?"라고 묻는다</td></tr>
+            <tr><td><code>w_k1</code></td><td><code>sel_mat(8,32,16,1,8)</code></td><td>자리를 그대로 내걸고 "나는 몇 번이다"라고 답한다</td></tr>
+            <tr><td><code>w_v1</code></td><td><code>sel_mat(8,32,0,1,8)</code></td><td>1–8칸, 내 단어를 건네준다</td></tr>
+            <tr><td><code>w_o1</code></td><td>32×8을 직접 쓴다</td><td>받은 8칸을 9–16칸에 적는다</td></tr>
+          </tbody>
+        </table>
+        <p><code>w_q1</code>의 <code>hi</code>가 7인 데는 이유가 있다. 8행까지 채우면 17 + 8 = 25번 칸을 읽는다. 거기는 정답 칸이다. <code>w_k1</code>은 16 + 8 = 24라서 8행까지 채워도 자리 구역 안이다.</p>
+        <p><code>w_o1</code>만 이 함수로 못 만든다. 방향이 반대라서다. 32칸에서 8칸을 뽑는 게 아니라, 8칸을 받아 32칸 중 9–16칸에 내려놓아야 한다.</p>
+        <p>진짜 GPT라면 이 네 줄 자리에 학습된 숫자가 수백만 개 들어간다. 이 모델은 네 줄이고, 숫자마다 왜 그 값인지 전부 말할 수 있다.</p>
+
+        <h2 id="scores">3. 점수표 만들기</h2>
+        <p>모든 자리 쌍의 점수를 뽑는 함수도 1편 도구를 이어 붙이면 된다. 자리마다 벡터를 꺼내고(<code>row_of</code>), q와 k를 만들고(<code>matvec</code>), 내적한다(<code>dot</code>). <code>FROM rows a, rows b</code>가 8 × 8 = 64쌍을 만든다.</p>
+        <pre><code>SELECT a.t, b.t, dot(matvec(wq, a.xt), matvec(wk, b.xt)) * scale
+FROM rows a, rows b;</code></pre>
+        <p>자리마다 q와 k가 어느 칸을 켜는지 표로 놓으면 1층이 한눈에 보인다.</p>
+        <table>
+          <thead><tr><th>자리</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr></thead>
+          <tbody>
+            <tr><td>q가 켠 칸</td><td>없음</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td></tr>
+            <tr><td>k가 켠 칸</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td></tr>
+          </tbody>
+        </table>
+        <p><mark>t번 자리의 q와 t − 1번 자리의 k가 늘 같은 칸을 켠다</mark>. 그래서 3번 자리는 2번에만 10점을 주고 나머지는 0점이다. 1번 자리의 q가 비어 있는 건 앞에 아무도 없어서다.</p>
+        <p>아직 두 가지가 모자라다. 이건 점수일 뿐 확률이 아니다. 그리고 자기보다 뒤에 있는 자리까지 계산하고 있다.</p>
+
+        <h2 id="mask">4. 배율과 마스킹</h2>
+        <h3>배율: 한 곳만 보게 하기</h3>
+        <p>원핫끼리 내적하면 가장 커도 1이다. 그래서 3번 자리의 점수는 [0, 1, 0]이다. 이걸 softmax에 넣으면 [0.212, 0.576, 0.212]가 된다. 바로 앞자리를 57.6%밖에 안 보고, 엉뚱한 자리 단어가 21%씩 섞여 들어온다.</p>
+        <p><mark>점수에 10을 곱해 [0, 10, 0]으로 만들면 [0, 1, 0]이 되어 한 곳만 본다</mark>. 1편에서 본 대로 softmax는 점수 차이가 클수록 한쪽으로 쏠린다.</p>
+        <p>진짜 트랜스포머는 반대로 점수를 <strong>나눈다</strong>. q가 64칸이면 점수를 8로 나눈다(64의 제곱근). 이 모델은 8칸짜리 원핫이라 점수가 너무 작아서 벌려야 한다. 진짜 모델은 칸이 많아 점수가 너무 커서 줄여야 한다.</p>
+        <p>방향은 반대지만 목표는 같다. softmax가 알맞게 뾰족해지도록 맞춘다. 진짜 모델에서 softmax가 0과 1로 굳으면 학습이 멈춘다. 왜 그런지는 4편에서 직접 겪는다.</p>
+        <h3>마스킹: 답안지 치우기</h3>
+        <p>모델이 할 일은 다음 단어 맞히기다. 그런데 2번 자리가 3–8번을 볼 수 있다면 맞히는 게 아니라 베끼는 것이다. 그래서 자리마다 자기 자신과 앞자리만 보게 막는다. 이걸 <strong>마스킹</strong>이라고 한다.</p>
+        <p>다른 도구에서는 큰 표를 다 만든 뒤 위쪽 삼각형을 가린다. <mark>SQL에서는 조인 조건 한 줄이면 된다</mark>.</p>
+        <pre><code>FROM rows a, rows b                    -- 마스킹 없음: 64쌍 전부
+FROM rows a JOIN rows b ON b.t &lt;= a.t  -- 마스킹: 앞자리까지만 (36쌍)</code></pre>
+        <p>다 계산하고 가리는 게 아니라 처음부터 필요한 쌍만 만든다. 이 두 가지를 넣은 게 <code>attn_weights</code>다. 점수를 질문한 자리별로 모아(<code>GROUP BY</code>) softmax를 씌운다.</p>
+        <p>아래 그림이 그 결과다. 줄은 질문하는 자리, 칸은 쳐다보는 자리다. 배율을 1로 내려 보고, 마스킹도 꺼 보자.</p>
+        <figure class="fig">
+          <div class="viz tall" id="viz-attn"></div>
+          <div class="fig-controls">
+            <div class="row" id="attn-mask">
+              <button type="button" class="chip-btn on" data-mask="on">마스킹 켜기</button>
+              <button type="button" class="chip-btn" data-mask="off">마스킹 끄기</button>
+            </div>
+            <label><span>배율 ×<b id="attn-scale-val">10</b></span><input type="range" id="attn-scale" min="1" max="10" step="0.5" value="10"></label>
+          </div>
+          <p class="readout" id="attn-readout"></p>
+          <figcaption>1층의 어텐션 가중치. 주황 막대가 바로 앞자리다. 막대에 마우스를 올리면 그 줄의 가중치가 보인다.</figcaption>
+        </figure>
+        <p>마스킹을 켜면 두 가지가 보인다. 줄마다 볼 수 있는 자리가 하나씩 늘어나는 <strong>계단 모양</strong>이 마스킹의 흔적이다. 높은 막대가 대각선 바로 옆을 따라가는 건 바로 앞자리를 정확히 찍는다는 뜻이다.</p>
+        <p>1번 자리만 자기 자신을 본다. 볼 수 있는 자리가 자기뿐이라 어쩔 수 없다.</p>
+
+        <h2 id="mix">5. 값 섞기</h2>
+        <p>어디를 볼지는 정했다. 이제 무엇을 가져올지 정할 차례다. "확률만큼 섞는다"는 건 가중 평균이다. 중간고사 40%, 기말고사 60%로 성적을 내는 것과 같다.</p>
+        <pre><code>최종 = 중간고사 × 0.4 + 기말고사 × 0.6
+결과 = 1번 자리의 v × 가중치₁ + 2번 자리의 v × 가중치₂ + …</code></pre>
+        <pre><code>SELECT vec_add(vec_scale(ARRAY[10,0], 0.7), vec_scale(ARRAY[0,20], 0.3));  -- {7,6}
+SELECT vec_add(vec_scale(ARRAY[10,0], 1.0), vec_scale(ARRAY[0,20], 0.0));  -- {10,0}</code></pre>
+        <p>두 번째 줄에 이 모델이 깔끔한 이유가 있다. 가중치가 1과 0이라 섞이지 않고, 한 자리 값만 그대로 온다. 빨강 100%에 파랑 0%를 섞으면 그냥 빨강이다. 진짜 모델은 가중치가 0.3, 0.25, 0.2처럼 퍼져 있어서 여러 자리가 섞여 온다.</p>
+        <p>SQL 문법 하나가 새로 나온다. 자리마다 섞을 범위가 다르다(3번 자리는 3개, 8번 자리는 8개). 그래서 "앞 표의 줄마다 뒤 계산을 따로 돌려라"라는 <code>CROSS JOIN LATERAL</code>을 쓴다. 그냥 <code>FROM probs p, vs v</code>로 쓰면 안쪽에서 <code>p.t</code>를 쓸 수 없다.</p>
+
+        <h2 id="residual">6. 잔차 연결</h2>
+        <p><code>attn_layer</code>의 마지막 줄은 결과를 바로 내보내지 않는다. 원래 입력에 <strong>더해서</strong> 내보낸다.</p>
+        <pre><code>내보내는 값 = 원래 입력 + (어텐션이 가져온 것을 W_o로 9–16칸에 놓은 것)</code></pre>
+        <p>노트 필기로 치면, 적힌 걸 지우고 새로 쓰지 않고 옆 여백에 덧붙여 쓰는 셈이다.</p>
+        <p><code>W_o</code>는 9–16칸 말고는 전부 0을 내놓는다. 그래서 <mark>더하지 않으면 지금 단어(1–8칸)와 자리(17–24칸)가 통째로 사라진다</mark>. 다음 층은 지금 단어와 앞 단어를 둘 다 봐야 한다. 하나라도 사라지면 아예 움직이지 못한다. 아래 그림에서 세 상태를 바꿔 가며 보자.</p>
+        <figure class="fig">
+          <div id="viz-cells"></div>
+          <div class="fig-controls">
+            <div class="row" id="cells-mode">
+              <button type="button" class="chip-btn" data-mode="embed">embed 직후</button>
+              <button type="button" class="chip-btn on" data-mode="layer1">1층 통과 (잔차 있음)</button>
+              <button type="button" class="chip-btn" data-mode="nores">1층 통과 (잔차 없음)</button>
+            </div>
+          </div>
+          <p class="readout" id="cells-readout"></p>
+          <figcaption>8자리 × 32칸에서 켜진 칸. 줄에 마우스를 올리면 그 자리의 켜진 칸을 풀어서 보여 준다.</figcaption>
+        </figure>
+        <p>잔차 덕분에 층을 깊이 쌓을 수 있다. 대신 층마다 값이 계속 더해져 커지는 문제가 생긴다. 그걸 막는 게 1편에서 만든 <code>layernorm</code>이다. 이 문제는 6편에서 직접 터뜨려 본다.</p>
+        <p>확인은 두 가지로 한다. 하나는 모양이다. 1층을 지나도 8자리 × 32칸이 그대로여야 다음 층에 또 넣을 수 있다.</p>
+        <p>다른 하나는 내용이다. 3번 자리(hot, 앞 단어 sun)에서 켜진 칸이 {5, 10, 19}면 맞다. 5는 hot, 10은 9 + 1(sun 번호 2), 19는 16 + 3이다.</p>
+
+        <h2 id="layer1">7. 1층 완성</h2>
+        <p>여섯 단계를 한 함수에 담았다. 자리별 벡터 꺼내기 → q, k, v 만들기 → 점수와 마스킹 → 확률 → 섞기 → <code>W_o</code>와 잔차. 이게 <code>attn_layer</code>다. 1층은 여기에 가중치 네 개를 넣고 이름만 붙인다.</p>
+        <pre><code>CREATE OR REPLACE FUNCTION layer1(x float8[]) RETURNS float8[] AS $$
+  SELECT attn_layer(x, w_q1(), w_k1(), w_v1(), w_o1(), 10.0);
+$$ LANGUAGE sql IMMUTABLE;</code></pre>
+        <p>통과시킨 다음 9–16칸을 읽어 보면, 모든 자리가 앞 단어를 정확히 적어 뒀다.</p>
+        <table>
+          <thead><tr><th>자리</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr></thead>
+          <tbody>
+            <tr><td>지금 단어</td><td>BOS</td><td>sun</td><td>hot</td><td>moon</td><td>cold</td><td>fire</td><td>big</td><td>sun</td></tr>
+            <tr><td>9–16칸</td><td>BOS</td><td>BOS</td><td>sun</td><td>hot</td><td>moon</td><td>cold</td><td>fire</td><td>big</td></tr>
+          </tbody>
+        </table>
+        <p>같은 단어가 연달아 나오는 까다로운 문장(BOS big big fire fire sun wet hot)을 넣어도 정확히 한 칸씩 밀린다. 이유는 간단하다. <mark>1층은 <strong>단어를 아예 보지 않는다</strong></mark>.</p>
+        <p>q와 k는 자리 칸만 쓴다. 단어 칸은 v만 쓴다. 어디를 볼지는 자리로 정하고, 무엇을 가져올지만 단어로 정한다. "Key와 Value는 달라도 된다"는 말이 바로 이것이다.</p>
+
+        <h3>BOS가 필요한 이유</h3>
+        <p>1번 자리가 자기 자신을 앞 단어로 적는 건 막을 수 없다. 그래도 괜찮다. 1번 자리가 뜻 없는 표시인 BOS이기 때문이다.</p>
+        <p>BOS 없이 sun으로 시작하면 "sun의 앞 단어는 sun"이라는 거짓 기록이 생긴다. 그러면 3편의 2층이 "앞 단어가 sun인 자리"를 찾을 때 1번 자리가 잘못 걸린다. BOS가 그 화살을 대신 맞아 준다.</p>
+        <p>진짜 LLM도 문장 앞에 특별한 토큰을 붙인다. 갈 곳 없는 어텐션이 모이는 이런 자리를 <strong>어텐션 싱크</strong>라고 부른다.</p>
+
+        <h2 id="summary">8. 정리</h2>
+        <p>이제 자리마다 정보가 세 개 있다. 지금 단어(1–8칸), 앞 단어(9–16칸), 자리(17–24칸). 한 자리가 자기 자신과 이웃을 함께 안다. 그래서 1층을 "기억을 만드는 층"이라고 부를 수 있다.</p>
+        <p>다음 편의 2층은 이 기억을 검색한다. 2층도 <code>attn_layer</code> 코드를 한 글자도 바꾸지 않는다. q와 k가 읽는 칸만 바꾼다.</p>
+        <ol>
+          <li>어텐션은 점수 → 확률 → 섞기, 세 단계다. 전부 1편 도구로 만든다.</li>
+          <li>q는 찾는 것, k는 내거는 이름표, v는 건네줄 내용물이다.</li>
+          <li>0과 1로 된 골라내기 행렬 네 개가 1층 가중치의 전부다.</li>
+          <li>배율이 얼마나 뾰족하게 볼지 정한다. 이 모델은 곱하고, 진짜 모델은 나눈다.</li>
+          <li>마스킹은 SQL에서 <code>ON b.t &lt;= a.t</code> 한 줄이다.</li>
+          <li>잔차 연결이 원래 정보를 살려 다음 층으로 보낸다.</li>
+        </ol>
+        <nav class="post-pager" aria-label="이전 글, 다음 글">
+          <a class="prev" href="pg-llm-1.html"><small>이전 글</small>← 1편. 재료: 벡터, 행렬, softmax</a>
+          <a class="next" href="pg-llm-3.html"><small>다음 글</small>3편. 2층과 생성: 모델이 대답하다 →</a>
+        </nav>
+      </article>
+    </main>
+  </div>
+  <script defer src="../assets/pg-llm-code.js"></script>
+  <script src="../assets/theme.js"></script>
+  <script type="module" src="../assets/pg-llm.js"></script>
+  <script type="module" src="../assets/pg-llm-viz.js"></script>
+</body>
+</html>

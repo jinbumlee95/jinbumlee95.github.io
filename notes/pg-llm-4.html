@@ -1,0 +1,273 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PG로 LLM 만들기 4편 · 학습 · 이진범</title>
+  <meta name="description" content="PostgreSQL만으로 LLM 만들기 4편: 바이그램 학습, 연쇄법칙과 역전파, 학습률과 배율 문제, 유도 헤드의 자연 발생, 과적합과 일반화">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="../assets/pg-llm.css">
+  <script>
+    // Apply a saved theme before first paint to avoid a flash
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="profile" href="../">
+        <span class="name">이진범</span>
+        <span class="handle">JB LEE</span>
+      </a>
+      <nav class="menu">
+        <a href="../about.html">
+          <span>About me</span>
+        </a>
+        <a href="https://velog.io/@jinbumlee95/posts" target="_blank" rel="noopener">
+          <span>velog</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="https://github.com/jinbumlee95" target="_blank" rel="noopener">
+          <span>GitHub</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="../#projects">
+          <span>Projects</span>
+        </a>
+      </nav>
+      <button type="button" class="theme-toggle" aria-label="라이트/다크 모드 전환">
+        <span class="theme-icon" aria-hidden="true"></span><span class="theme-label"></span>
+      </button>
+    </aside>
+
+    <main class="content post">
+      <article>
+        <a class="back" href="../#projects">← Projects</a>
+        <header class="post-head">
+          <p class="post-meta">학습 노트 · PG로 LLM 만들기 4/6 · 2026.11</p>
+          <h1>4편. 학습: 숫자를 데이터가 정하게</h1>
+          <p class="post-sub">3편까지는 가중치 여덟 줄을 손으로 썼다. 답을 알았기에 가능했다. 4편은 손을 떼고 무작위 숫자에서 시작한다. 데이터만 보고 같은 회로가 다시 생기는지 확인한다.</p>
+          <p class="post-source">그래프와 표에 마우스를 올리면 값이 보이고, 3D 그림은 드래그해서 돌려 볼 수 있다.</p>
+        </header>
+
+        <nav class="series" aria-label="시리즈 목차">
+          <strong>PG로 LLM 만들기 시리즈</strong>
+          <ol>
+            <li><a href="pg-llm-1.html">재료: 벡터, 행렬, softmax</a></li>
+            <li><a href="pg-llm-2.html">어텐션 1층: 직전 단어 기억하기</a></li>
+            <li><a href="pg-llm-3.html">2층과 생성: 모델이 대답하다</a></li>
+            <li class="now" aria-current="page"><a href="pg-llm-4.html">학습: 숫자를 데이터가 정하게</a></li>
+            <li><a href="pg-llm-5.html">들여다보기: 학습된 회로 다시 찾기</a></li>
+            <li><a href="pg-llm-6.html">키우기: 커지면 생기는 문제들</a></li>
+          </ol>
+        </nav>
+
+        <nav class="toc" aria-label="목차">
+          <strong>목차</strong>
+          <ol>
+            <li><a href="#why">손으로 정하기의 한계</a></li>
+            <li><a href="#bigram">첫 학습: 바이그램</a></li>
+            <li><a href="#backprop">연쇄법칙과 역전파</a></li>
+            <li><a href="#hard">학습이 어려운 이유</a></li>
+            <li><a href="#emerge">유도 헤드가 저절로 생긴다</a></li>
+            <li><a href="#overfit">외운 것과 배운 것</a></li>
+            <li><a href="#summary">정리</a></li>
+          </ol>
+        </nav>
+        <h2 id="why">1. 손으로 정하기의 한계</h2>
+        <p>가중치를 손으로 정하는 방식에는 한계가 셋 있다.</p>
+        <ul>
+          <li>답(유도 헤드)을 미리 알아야 한다.</li>
+          <li>크게 키울 수 없다. GPT-2 small은 숫자가 1억 2천만 개다.</li>
+          <li>사람이 일일이 셀 수 없는 규칙은 담지 못한다.</li>
+        </ul>
+        <p>아는 요리는 레시피를 쓰면 된다. 처음 만드는 요리는 간을 보면서 고쳐야 한다. 학습이 그 간 보기다.</p>
+        <p>학습에는 정답이 필요하다. 언어 모델의 정답은 글 자체에서 나온다. "BOS sun hot moon cold" 한 줄에서 "BOS → sun", "BOS sun → hot" 같은 문제가 네 개 나온다.</p>
+        <p>다음 단어가 곧 정답이라 사람이 답을 달아 줄 필요가 없다. 그래서 인터넷의 글을 통째로 학습에 쓸 수 있다. 이걸 <strong>자기지도 학습</strong>이라고 한다.</p>
+
+        <h2 id="bigram">2. 첫 학습: 바이그램</h2>
+        <p>바로 어텐션으로 가지 않는다. 가장 단순한 모델로 학습부터 익힌다. <strong>바이그램</strong>은 앞 단어 하나만 보고 다음 단어를 맞히는 모델이다.</p>
+        <p>모델은 8 × 8 표 W 하나다. 앞 단어가 sun이면 W의 sun 열을 통째로 꺼낸다. 그게 다음 단어 8개의 점수다. 즉 W의 각 열이 "이 단어 다음에 뭐가 올지"를 적은 점수표다.</p>
+        <p>가중치는 이제 함수가 아니라 테이블 <code>w(i, j, v)</code>에 둔다. 배열은 통째로 바꿔야 하지만, 테이블은 <code>UPDATE</code>로 한 칸씩 고칠 수 있다.</p>
+        <h3>데이터와 출발점</h3>
+        <p>데이터는 12쌍이다. sun → hot, moon → cold, fire → big을 세 번씩 넣었다. BOS 다음은 sun, moon, fire를 한 번씩, 일부러 애매하게 넣었다.</p>
+        <p>출발점은 −0.01 ~ 0.01 사이의 무작위 작은 수다. 전부 0으로 시작하면 모든 칸이 똑같이 움직여서 영영 구별이 안 생긴다. 크게 시작하면 처음부터 엉뚱한 답을 굳게 믿어서 빠져나오기 어렵다.</p>
+        <p>학습 전 손실은 2.0784다. 8개 중 아무거나 찍으면 정답 확률이 1/8이고, 그때 손실이 2.079다. 정확히 "아무것도 모르는 상태"다.</p>
+
+        <h3>어느 쪽으로 고칠까</h3>
+        <p>W의 각 칸을 어느 쪽으로 고칠지(기울기)는 간단하다. 이유는 뒤에서 보고, 결과부터 쓴다.</p>
+        <pre><code>기울기 = (예측 확률 − 정답 여부)      정답 여부: 정답 단어면 1, 아니면 0
+          단, 앞 단어에 해당하는 열만 고친다</code></pre>
+        <p>읽기도 쉽다. 정답인데 확률이 0.1이면 −0.9다. "더 믿어도 된다"는 신호다. 오답인데 확률이 0.7이면 +0.7이다. "그거 아니다"라고 크게 알려 준다.</p>
+        <p>이미 잘하고 있으면 거의 0이라 아무 말도 하지 않는다. <mark>틀린 만큼이 그대로 기울기가 된다</mark>. sun을 보고 틀렸다면 sun 열만 고친다. moon 열은 건드릴 이유가 없다.</p>
+        <pre><code>UPDATE w SET v = w.v - lr * g.grad * …
+FROM (SELECT i, p.prev AS j,
+             avg((probs_of(p.prev))[i] - CASE WHEN i = p.next THEN 1 ELSE 0 END) AS grad
+      FROM pairs p, generate_series(1,8) i GROUP BY i, p.prev) g
+WHERE w.i = g.i AND w.j = g.j;</code></pre>
+        <p>3편의 <code>a − 0.05 × 기울기</code>와 같은 모양이다. 고칠 값이 64개로 늘었을 뿐이다. 테이블을 고쳐야 하니 반복은 <code>WITH RECURSIVE</code> 대신 <code>DO $$ … LOOP … $$</code>로 돌린다.</p>
+        <p>아래 그림은 같은 학습을 브라우저에서 돌린다. 100걸음을 눌러 보자.</p>
+        <figure class="fig">
+          <div id="viz-bigram"></div>
+          <div class="fig-controls">
+            <div class="row" id="bigram-btns">
+              <button type="button" class="chip-btn" data-n="1">1걸음</button>
+              <button type="button" class="chip-btn" data-n="10">10걸음</button>
+              <button type="button" class="chip-btn" data-n="100">100걸음</button>
+              <button type="button" class="chip-btn" data-n="0">랜덤에서 다시</button>
+            </div>
+          </div>
+          <p class="readout" id="bigram-readout"></p>
+          <figcaption>앞 단어(열)별 다음 단어(행)의 확률. 진할수록 확률이 높다. 학습률 1.0.</figcaption>
+        </figure>
+        <p>100걸음이면 손실이 2.08에서 0.33 근처로 떨어진다. sun → hot, moon → cold, fire → big을 96% 확신으로 맞힌다. 규칙을 가르친 적 없이 예시 12개에서 뽑아낸 것이다.</p>
+        <p>눈여겨볼 건 BOS 열이다. 확신도가 0.3 근처에서 멈춘다. 데이터에서 BOS 다음이 셋 중 하나씩이었으니, 1/3씩 나눠 주는 게 맞는 답이다. <mark><strong>모델이 "모른다"를 정확히 배운 것</strong>이다</mark>.</p>
+        <p>600걸음까지 가면 확실한 건 0.994로 더 확실해진다. BOS는 0.33 근처에 머문다. 데이터 자체가 애매하면 아무리 학습해도 그 애매함은 없어지지 않는다. 그래서 실제 언어 모델의 손실도 0까지 내려가지 않는다.</p>
+        <p>바이그램의 한계도 분명하다. "BOS sun hot moon cold fire big sun" 다음을 맞히려면 문장 전체를 봐야 한다. 그런데 바이그램은 앞 단어 big 하나만 본다.</p>
+        <p>문맥을 보려면 어텐션이 필요하다. 어텐션을 학습시키려면 기울기를 여러 단계 거슬러 올라가야 한다.</p>
+
+        <h2 id="backprop">3. 연쇄법칙과 역전파</h2>
+        <h3>수치미분은 너무 비싸다</h3>
+        <p>3편의 수치미분은 값 하나마다 모델을 두 번 돌린다. 학습할 값이 512개면 한 걸음에 1,024번이다. GPT-2 small이면 2억 4천만 번이다. 모델 한 번이 0.001초라도 한 걸음에 3일이 걸린다.</p>
+        <p><strong>역전파</strong>는 앞으로 한 번, 뒤로 한 번, 두 번만 돌려서 모든 값의 기울기를 한꺼번에 구한다.</p>
+        <h3>연쇄법칙은 배수의 곱셈</h3>
+        <p>a가 b를 2배로 움직이고, b가 c를 3배로 움직이면, a는 c를 6배로 움직인다. 1달러가 7위안이고 1위안이 190원이면 1달러가 1,330원인 것과 같다. 곱하기만 하면 된다. 이걸 <strong>연쇄법칙</strong>이라고 부른다.</p>
+        <pre><code>a = 2  →  b = a × 3 = 6  →  c = b × b = 36
+
+a가 b를 움직이는 배수:  3
+b가 c를 움직이는 배수:  12   (제곱은 "2 × 지금 값"만큼 움직인다)
+a가 c를 움직이는 배수:  3 × 12 = 36   (수치미분으로 재도 36.001)</code></pre>
+        <p>회사에서 매출이 줄면 사장 → 부장 → 팀장 → 팀원 순으로 책임이 쪼개져 내려간다. 역전파도 손실에서 출발해 거꾸로 한 단계씩 내려온다.</p>
+        <p>각 단계는 "위에서 받은 책임 × 내 몫"만 계산한다. 회사 전체를 다시 계산할 필요가 없다. 이 모델에서 만나는 계산은 세 가지뿐이라, 각각의 "내 몫"만 알면 된다.</p>
+        <table>
+          <thead><tr><th>계산</th><th>내 몫을 쉽게 말하면</th></tr></thead>
+          <tbody>
+            <tr><td>내적</td><td>사과 개수를 하나 늘리면 총액은 사과 <strong>가격</strong>만큼 는다. 한쪽의 기울기는 다른 쪽 값이다.</td></tr>
+            <tr><td>행렬곱</td><td>행마다 내적이니 위의 규칙을 행마다 쓴다.</td></tr>
+            <tr><td>softmax</td><td>합이 1이라 한 칸이 오르면 나머지가 내려간다. 내 몫이 오르려면 <strong>평균보다</strong> 잘해야 한다.</td></tr>
+          </tbody>
+        </table>
+        <p>softmax 바로 뒤에 손실이 붙으면 계산이 확 단순해져 <strong>예측 − 정답</strong>만 남는다. 앞의 바이그램 공식이 바로 이것이었다.</p>
+        <p>거의 모든 분류 문제가 softmax와 교차 엔트로피를 짝으로 쓰는 건 우연이 아니다. 이 깔끔함 때문이다.</p>
+
+        <h3>어텐션 역전파</h3>
+        <p>학습 대상은 2층의 <code>W_q2</code>, <code>W_k2</code>만으로 정한다. "어디를 볼지"가 유도 헤드의 핵심이라 이것만 찾아내면 충분하다.</p>
+        <p>1층은 자리만 보는 고정 규칙이라 배울 게 없다. 고정해 두면 1층 결과를 한 번만 계산해 다시 쓸 수 있다. 학습할 값은 8 × 32 × 2 = 512개다.</p>
+        <p>순서는 앞으로 간 길을 거꾸로 밟는 것이다. 앞으로 갈 때는 "q와 k 만들기 → 점수 → 확률 → 섞기 → 답"이었다. 뒤로 올 때는 이렇다.</p>
+        <ol>
+          <li><strong>답</strong>: 예측 − 정답으로 어느 단어 점수를 올리고 내릴지 구한다.</li>
+          <li><strong>섞기</strong>: 자리마다 "더 봐야 하나, 덜 봐야 하나"를 숫자 하나로 구한다.</li>
+          <li><strong>확률</strong>: softmax를 거꾸로 지나 점수의 기울기로 바꾼다.</li>
+          <li><strong>점수</strong>: 내적이었으니 q의 기울기는 k에서, k의 기울기는 q에서 온다.</li>
+          <li><strong>가중치</strong>: 행렬곱이었으니 입력을 곱해 W_q, W_k의 기울기 512개를 얻는다.</li>
+        </ol>
+        <p>SQL로는 <code>WITH</code> 절 하나가 한 단계씩이다. <code>d</code>로 시작하는 이름이 전부 기울기다. 결과는 정확히 512행이다.</p>
+
+        <h3>반드시 수치미분과 맞춰 본다</h3>
+        <p><mark>역전파의 무서운 점은 <strong>틀려도 에러가 나지 않는다</strong>는 것이다</mark>. 부호 하나를 틀리면 학습이 반대로 간다. 그런데 코드는 멀쩡히 돈다. "학습률 문제인가?" 하며 몇 시간을 날린다.</p>
+        <p>그래서 수치미분과 몇 칸을 골라 맞춰 본다. 수치미분은 느리지만 정의 그대로라 틀릴 수가 없다. 값을 바꿨다가 <strong>반드시 원래대로 되돌려 놓는</strong> 것도 잊지 않는다.</p>
+        <table>
+          <thead><tr><th>행렬</th><th>i</th><th>j</th><th>역전파</th><th>수치미분</th></tr></thead>
+          <tbody>
+            <tr><td>k</td><td>1</td><td>10</td><td>0.221181</td><td>0.221177</td></tr>
+            <tr><td>k</td><td>5</td><td>13</td><td>−0.029157</td><td>−0.029149</td></tr>
+            <tr><td>q</td><td>1</td><td>2</td><td>0.021010</td><td>0.021025</td></tr>
+          </tbody>
+        </table>
+        <p>소수 넷째~다섯째 자리까지 맞으면 통과다. 끝자리가 조금 다른 건 컴퓨터의 소수 오차와 수치미분 자체가 어림값이라서 생긴다.</p>
+
+        <h2 id="hard">4. 학습이 어려운 이유</h2>
+        <p>처음 돌린 학습은 대개 안 된다. 시작하기 전에 목표부터 확인했다. 3편의 손으로 만든 가중치를 넣으면 손실이 0.0024다. 그 근처까지 가면 성공이다. 무작위 상태는 2.2 근처다.</p>
+        <h3>보폭이 크면 튕겨 나간다</h3>
+        <p>학습률 1.0으로 30걸음을 돌리면 손실이 2.2에서 <strong>8.0으로 올라가서</strong> 내려오지 않는다. 손실 8은 틀린 답을 100% 믿는 상태다. 너무 굳게 믿으면 기울기가 0에 가까워져서 움직일 힘이 없어진다.</p>
+        <p>학습률만 바꿔도 결과가 완전히 달라진다.</p>
+        <table>
+          <thead><tr><th>학습률</th><th>30걸음 뒤 손실</th><th>상태</th></tr></thead>
+          <tbody>
+            <tr><td>1.0</td><td>8.0023</td><td>튕겨 나가 갇힘</td></tr>
+            <tr><td>0.3</td><td>5.3357</td><td>헤매는 중</td></tr>
+            <tr><td>0.1</td><td>0.0032</td><td>성공</td></tr>
+          </tbody>
+        </table>
+        <p>아래 그림은 이걸 그릇 모양 함수로 보여 준다. 이 모델의 실제 손실 모양이 아니라 설명용 예시다. 한쪽이 가파른 그릇에서 보폭이 크면 골짜기를 건너뛰어 반대편으로 올라간다.</p>
+        <figure class="fig">
+          <div class="viz" id="viz-bowl"></div>
+          <div class="fig-controls">
+            <div class="row" id="bowl-lr">
+              <button type="button" class="chip-btn on" data-lr="0.1">학습률 0.1</button>
+              <button type="button" class="chip-btn" data-lr="0.3">학습률 0.3</button>
+              <button type="button" class="chip-btn" data-lr="1">학습률 1.0</button>
+            </div>
+          </div>
+          <p class="readout" id="bowl-readout"></p>
+          <figcaption>f(x, y) = 0.5x² + 3y² 위의 경사하강. 같은 출발점, 다른 보폭.</figcaption>
+        </figure>
+        <h3>배율이 기울기를 죽인다</h3>
+        <p>어텐션 배율 10도 학습을 방해한다. softmax를 거꾸로 지날 때 그 자리의 확률이 곱해진다. 그래서 확률이 0인 자리는 기울기도 0이다.</p>
+        <p>배율이 크면 softmax가 0 아니면 1이 된다. 대부분의 자리가 아무리 밀어도 움직이지 않는다. 2편에서 "진짜 모델은 배율을 나눈다"고 한 이유를 여기서 몸으로 안다. 학습할 때는 배율을 3으로 낮췄다.</p>
+        <h3>softmax가 아래로 터진다</h3>
+        <p>학습 중에 <code>value out of range: underflow</code> 에러를 만났다. 최댓값 빼기 덕분에 위로는 안 터진다. 하지만 점수 차이가 2,000쯤 벌어지면 exp(−2010)이 컴퓨터가 담을 수 없을 만큼 작아진다.</p>
+        <p>exp에 들어가는 값에 바닥을 깔아 주면 해결된다.</p>
+        <pre><code>exp(greatest(v[i] - max, -700))   -- exp(-700)은 담을 수 있는 하한 근처</code></pre>
+        <p>수학으로는 필요 없지만 컴퓨터에는 필요한 처리다. 실제 라이브러리 곳곳에 이런 처리가 들어 있다.</p>
+
+        <h2 id="emerge">5. 유도 헤드가 저절로 생긴다</h2>
+        <p>학습 데이터는 "사전 세 쌍 + 마지막에 하나 다시 묻기" 모양의 문장 12개다. 배율 3, 학습률 0.3으로 60걸음을 돌렸다. 손실이 2.2290에서 0.0042가 됐고, 12개를 전부 맞혔다.</p>
+        <p>중요한 건 그다음이다. 학습된 어텐션이 "앞 단어가 나와 같은 자리"를 찍는지 확인했다.</p>
+        <table>
+          <thead><tr><th>문장</th><th>봐야 할 자리</th><th>학습이 찍은 자리</th><th>가중치</th></tr></thead>
+          <tbody>
+            <tr><td>BOS sun hot moon cold fire big sun</td><td>3</td><td>3</td><td>0.956</td></tr>
+            <tr><td>BOS moon wet sun big fire hot sun</td><td>5</td><td>5</td><td>0.975</td></tr>
+            <tr><td>BOS fire cold sun wet moon hot moon</td><td>7</td><td>7</td><td>0.942</td></tr>
+            <tr><td>BOS sun big fire hot moon wet sun</td><td>3</td><td>3</td><td>0.996</td></tr>
+          </tbody>
+        </table>
+        <p>12개 문장 전부에서 봐야 할 자리를 0.899 ~ 0.996의 가중치로 찍었다(표는 그중 일부).</p>
+        <p>무작위 작은 수로 시작했다. "여기를 봐라"라고 알려 준 적도 없다. 준 건 문장 12개와 정답 12개뿐이다. 그런데 <mark>3편에서 손으로 넣었던 것과 같은 회로가 생겼다</mark>. 대형 모델에서 본 일이, 크기가 100만분의 1인 이 모델에서도 일어났다.</p>
+        <p>왜 하필 그 회로일까? 데이터를 설명하는 가장 싼 방법이라서다. 문장을 통째로 외우기보다 "앞 단어가 같은 자리를 찾아 베낀다"는 규칙 하나가 훨씬 간단하다. 손실을 줄이는 길이 그 규칙을 향해 나 있었다.</p>
+
+        <h2 id="overfit">6. 외운 것과 배운 것</h2>
+        <p>그런데 학습에 안 쓴 문장 네 개로 시험하니 <strong>0/4</strong>였다. 전부 마지막 단어를 그대로 되풀이했다.</p>
+        <p>학습 문장이 12개뿐이고 사전 배열은 4가지밖에 없었다. <mark>규칙을 배우기보다 그 4가지를 외우는 게 쉬웠다</mark>. 기출문제만 외워서 기출은 만점인데 새 문제는 못 푸는 학생과 같다. 이걸 <strong>과적합</strong>이라고 한다. 앞에서 본 유도 헤드는 학습 문장 안에서만 통하는 반쪽이었다.</p>
+        <p>처방은 외울 수 없을 만큼 많이 주는 것이다. 사전 조합을 무작위로 뽑아 40가지 배열, 120문장을 만들었다. 다시 학습하니 처음 보는 문장에서 <strong>3/4</strong>를 맞혔다.</p>
+        <figure class="fig">
+          <div class="unseen" id="viz-unseen"></div>
+          <figcaption>120문장으로 학습한 모델이 처음 보는 문장에서 마지막 자리가 보는 곳. 주황이 봐야 할 자리다.</figcaption>
+        </figure>
+        <p>틀린 103번의 어텐션을 보면, 틀렸다기보다 <strong>헤매고</strong> 있다. 가장 큰 가중치가 0.40이고 여기저기 흩어져 있다. 나머지 셋은 0.75 ~ 0.92로 확신한다.</p>
+        <p>"틀렸다"와 "모르겠다"는 다르다. 모델은 자신 없다는 걸 확률로 말해 준다.</p>
+
+        <h2 id="summary">7. 정리</h2>
+        <ol>
+          <li>수치미분은 값 하나마다 모델을 두 번 돌린다. 값이 많으면 쓸 수 없고, 역전파는 두 번으로 끝낸다.</li>
+          <li>연쇄법칙은 배수를 곱하는 것이다.</li>
+          <li>softmax와 교차 엔트로피를 짝으로 쓰면 기울기가 "예측 − 정답"으로 깔끔해진다.</li>
+          <li>역전파는 틀려도 에러가 나지 않는다. 반드시 수치미분과 맞춰 본다.</li>
+          <li>학습률이 크면 튕겨 나가 갇히고, 어텐션이 너무 뾰족하면 기울기가 죽는다.</li>
+          <li>데이터가 적으면 규칙 대신 답을 외운다. 늘리면 규칙을 배운다.</li>
+          <li>기계는 유도 헤드를 스스로 찾는다. 데이터를 설명하는 가장 싼 방법이라서다.</li>
+        </ol>
+        <p>대신 문제가 하나 생겼다. 3편까지는 <code>sel_mat(8,32,17,1,7)</code>이 왜 그 값인지 말할 수 있었다. 지금 <code>wq</code>를 열면 0.0382, −0.1174 같은 숫자뿐이다.</p>
+        <p>잘 도는 모델을 얻는 대신 이해를 잃었다. 5편은 그 이해를 되찾는다.</p>
+        <nav class="post-pager" aria-label="이전 글, 다음 글">
+          <a class="prev" href="pg-llm-3.html"><small>이전 글</small>← 3편. 2층과 생성: 모델이 대답하다</a>
+          <a class="next" href="pg-llm-5.html"><small>다음 글</small>5편. 들여다보기: 학습된 회로 다시 찾기 →</a>
+        </nav>
+      </article>
+    </main>
+  </div>
+  <script defer src="../assets/pg-llm-code.js"></script>
+  <script src="../assets/theme.js"></script>
+  <script type="module" src="../assets/pg-llm.js"></script>
+  <script type="module" src="../assets/pg-llm-viz.js"></script>
+</body>
+</html>

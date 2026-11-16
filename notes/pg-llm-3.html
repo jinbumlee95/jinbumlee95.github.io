@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PG로 LLM 만들기 3편 · 2층과 생성 · 이진범</title>
+  <meta name="description" content="PostgreSQL만으로 LLM 만들기 3편: 기억을 검색하는 2층, 유도 헤드, 예측과 생성, 온도, 수치미분으로 하는 첫 학습">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="../assets/pg-llm.css">
+  <script>
+    // Apply a saved theme before first paint to avoid a flash
+    try { const t = localStorage.getItem('theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <a class="profile" href="../">
+        <span class="name">이진범</span>
+        <span class="handle">JB LEE</span>
+      </a>
+      <nav class="menu">
+        <a href="../about.html">
+          <span>About me</span>
+        </a>
+        <a href="https://velog.io/@jinbumlee95/posts" target="_blank" rel="noopener">
+          <span>velog</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="https://github.com/jinbumlee95" target="_blank" rel="noopener">
+          <span>GitHub</span><span class="ext" aria-hidden="true">↗</span>
+        </a>
+        <a href="../#projects">
+          <span>Projects</span>
+        </a>
+      </nav>
+      <button type="button" class="theme-toggle" aria-label="라이트/다크 모드 전환">
+        <span class="theme-icon" aria-hidden="true"></span><span class="theme-label"></span>
+      </button>
+    </aside>
+
+    <main class="content post">
+      <article>
+        <a class="back" href="../#projects">← Projects</a>
+        <header class="post-head">
+          <p class="post-meta">학습 노트 · PG로 LLM 만들기 3/6 · 2026.11</p>
+          <h1>3편. 2층과 생성: 모델이 대답하다</h1>
+          <p class="post-sub">1층이 적어 둔 "앞 단어" 기록을 검색하는 2층을 만든다. 그러면 모델이 드디어 대답한다. 답을 이어 붙여 문장을 만들고, 온도로 답을 다양하게 바꾸고, 마지막에는 숫자 하나를 직접 학습시킨다.</p>
+          <p class="post-source">그래프와 표에 마우스를 올리면 값이 보이고, 3D 그림은 드래그해서 돌려 볼 수 있다.</p>
+        </header>
+
+        <nav class="series" aria-label="시리즈 목차">
+          <strong>PG로 LLM 만들기 시리즈</strong>
+          <ol>
+            <li><a href="pg-llm-1.html">재료: 벡터, 행렬, softmax</a></li>
+            <li><a href="pg-llm-2.html">어텐션 1층: 직전 단어 기억하기</a></li>
+            <li class="now" aria-current="page"><a href="pg-llm-3.html">2층과 생성: 모델이 대답하다</a></li>
+            <li><a href="pg-llm-4.html">학습: 숫자를 데이터가 정하게</a></li>
+            <li><a href="pg-llm-5.html">들여다보기: 학습된 회로 다시 찾기</a></li>
+            <li><a href="pg-llm-6.html">키우기: 커지면 생기는 문제들</a></li>
+          </ol>
+        </nav>
+
+        <nav class="toc" aria-label="목차">
+          <strong>목차</strong>
+          <ol>
+            <li><a href="#search">2층은 검색이다</a></li>
+            <li><a href="#answer">대답하기</a></li>
+            <li><a href="#generate">문장 이어 만들기</a></li>
+            <li><a href="#temperature">온도: 매번 다르게 답하기</a></li>
+            <li><a href="#missing">이 모델에 없는 부품</a></li>
+            <li><a href="#train">학습 맛보기: 숫자 하나</a></li>
+            <li><a href="#summary">정리</a></li>
+          </ol>
+        </nav>
+        <h2 id="search">1. 2층은 검색이다</h2>
+        <p>1층을 지난 문장을 다시 보자.</p>
+        <table>
+          <thead><tr><th>자리</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th></tr></thead>
+          <tbody>
+            <tr><td>지금 단어</td><td>BOS</td><td>sun</td><td><strong>hot</strong></td><td>moon</td><td>cold</td><td>fire</td><td>big</td><td><strong>sun</strong></td></tr>
+            <tr><td>앞 단어</td><td>BOS</td><td>BOS</td><td><strong>sun</strong></td><td>hot</td><td>moon</td><td>cold</td><td>fire</td><td>big</td></tr>
+          </tbody>
+        </table>
+        <p>이 표는 전화번호부다. 앞 단어가 찾는 열쇠, 지금 단어가 돌려줄 값이다.</p>
+        <p>마지막 자리 단어가 sun이니 이렇게 물으면 된다. "앞 단어가 sun인 줄을 찾아, 그 줄의 지금 단어를 줘." 3번 줄이 걸리고 답은 hot이다. 어텐션 말로 바꾸면 이렇다.</p>
+        <table>
+          <thead><tr><th></th><th>2층이 읽는 것</th><th>칸</th><th>행렬</th></tr></thead>
+          <tbody>
+            <tr><td>Query</td><td>지금 자리의 지금 단어</td><td>1–8</td><td><code>w_q2 = sel_mat(8,32,0,1,8)</code></td></tr>
+            <tr><td>Key</td><td>각 자리의 앞 단어</td><td>9–16</td><td><code>w_k2 = sel_mat(8,32,8,1,8)</code></td></tr>
+            <tr><td>Value</td><td>그 자리의 지금 단어</td><td>1–8</td><td><code>w_v2 = sel_mat(8,32,0,1,8)</code></td></tr>
+            <tr><td>Output</td><td>받은 걸 정답 칸에</td><td>25–32</td><td><code>w_o2</code> (32×8)</td></tr>
+          </tbody>
+        </table>
+        <p>1층과 비교하면 <code>W_q</code>의 offs가 17에서 0으로, <code>W_k</code>의 offs가 16에서 8로 바뀌었다. 그게 전부다. <code>attn_layer</code>는 그대로다.</p>
+        <p><mark>같은 틀에 가중치만 바꿔 끼웠는데 하는 일이 완전히 달라진다</mark>. 트랜스포머가 층을 쌓아 힘이 세지는 이유다. 그리고 <code>w_k2</code>가 읽는 9–16칸은 1층이 채워 둔 칸이다. 1층이 없었다면 2층은 빈칸만 읽었을 것이다.</p>
+        <pre><code>CREATE OR REPLACE FUNCTION layer2(x float8[]) RETURNS float8[] AS $$
+  SELECT attn_layer(x, w_q2(), w_k2(), w_v2(), w_o2(), 10.0);
+$$ LANGUAGE sql IMMUTABLE;
+
+CREATE OR REPLACE FUNCTION forward(toks int[]) RETURNS float8[] AS $$
+  SELECT layer2(layer1(embed(toks)));
+$$ LANGUAGE sql IMMUTABLE;</code></pre>
+        <p><code>forward</code> 한 줄이 모델 전체다. 공장 컨베이어 벨트처럼 문장이 embed → 1층 → 2층을 차례로 지나간다. 두 층을 지나도 모양은 8자리 × 32칸 그대로다.</p>
+
+        <h2 id="answer">2. 대답하기</h2>
+        <p>마지막 자리의 25–32칸을 읽으면 hot 칸만 0.99968이고 나머지는 0.00005쯤이다. 딱 0이 아닌 건 softmax가 아무리 뾰족해도 완전한 0은 만들지 않기 때문이다.</p>
+        <p>확률로 바꾸기 바로 전의 이 점수를 <strong>로짓</strong>이라고 부른다. 가장 큰 값을 고르는 건 SQL로 <code>ORDER BY … DESC LIMIT 1</code>이면 된다.</p>
+        <pre><code>CREATE OR REPLACE FUNCTION logits(toks int[]) RETURNS float8[] AS $$
+  WITH last AS (SELECT row_of(forward(toks), array_length(toks,1)) AS h)
+  SELECT array_agg(h[24+j] ORDER BY j) FROM last, generate_series(1,8) j;
+$$ LANGUAGE sql IMMUTABLE;
+
+SELECT predict(ARRAY[1,2,5,3,6,4,7,2]);  -- hot</code></pre>
+        <p><code>WITH</code>로 한 번 감싼 데는 이유가 있다. PostgreSQL은 함수 결과 바로 뒤에 <code>[25]</code>를 붙이지 못한다. 그렇게 쓰면 문법 에러가 난다. 에러가 <code>[</code>를 가리키면 이걸 떠올리면 된다.</p>
+        <p>마지막 단어를 moon이나 fire로 바꾸면 cold, big으로 답한다. 그런데 이것만 보면 외운 건지 알 수 없다.</p>
+        <p>그래서 이 시리즈에서 가장 중요한 실험을 한다. <strong>모델 숫자는 그대로 두고, 문장 속 사전만 바꿔 본다.</strong></p>
+        <figure class="fig">
+          <div id="viz-induct"></div>
+          <div class="fig-controls">
+            <div class="row" id="induct-dict">
+              <button type="button" class="chip-btn on" data-s="1,2,5,3,6,4,7">sun→hot · moon→cold · fire→big</button>
+              <button type="button" class="chip-btn" data-s="1,2,6,3,5,4,7">sun→cold · moon→hot</button>
+              <button type="button" class="chip-btn" data-s="1,2,8,3,5,4,7">sun→wet · moon→hot</button>
+            </div>
+            <div class="row" id="induct-q">
+              <button type="button" class="chip-btn on" data-q="2">마지막 sun</button>
+              <button type="button" class="chip-btn" data-q="3">마지막 moon</button>
+              <button type="button" class="chip-btn" data-q="4">마지막 fire</button>
+            </div>
+          </div>
+          <p class="readout" id="induct-readout"></p>
+          <figcaption>2층의 검색. 파란 테두리가 Query, 초록 테두리가 걸린 Key, 주황이 가져올 값이다.</figcaption>
+        </figure>
+        <p>사전을 바꾸면 답도 따라 바뀐다. <mark>모델 숫자는 하나도 안 바뀌었다. 바뀐 건 입력 문장뿐이다</mark>.</p>
+        <p>시험지 첫머리에 "이 문제에서 별표는 곱하기다"라고 적혀 있으면 그대로 푼다. 문장에 적힌 규칙을 그 자리에서 읽고 따르는 것이다. 이걸 <strong>문맥 내 학습</strong>이라고 한다.</p>
+        <p>ChatGPT에 "사과 → apple, 바나나 → banana, 포도 →"를 주면 grape라고 답한다. 그것도 같은 종류의 일이다.</p>
+
+        <h3>유도 헤드</h3>
+        <p>이 두 층짜리 회로에는 이름이 있다. <strong>유도 헤드</strong>다. 하는 일은 이렇다. "아까 A 다음에 B가 왔다. 지금 또 A가 나왔으니 다음은 B다."</p>
+        <p>1층만으로는 기억만 하고 찾지 못한다. 2층만으로는 찾을 재료가 없다. 그래서 두 층이 꼭 함께 있어야 한다.</p>
+        <p>이 회로는 실제 대형 모델 안에서도 발견됐다. 아무도 만들라고 시키지 않았는데 학습하다 보면 저절로 생긴다. 그러니 여기서 만든 건 장난감이 아니라 진짜 회로를 가장 작게 줄인 모양이다. 4편에서는 무작위 숫자에서 시작해도 이 회로가 생기는지 확인한다.</p>
+
+        <h3>얼마나 확신하나</h3>
+        <p>로짓은 0과 1 사이라 그대로 softmax하면 hot의 확률이 28%쯤밖에 안 된다. 1층에서 10을 곱한 것과 같은 이유로 여기서는 8을 곱한다. 그러면 99.77%가 된다.</p>
+
+        <h2 id="generate">3. 문장 이어 만들기</h2>
+        <p>LLM은 다음 단어 하나 맞히기를 <strong>되풀이</strong>한다. 맞힌 단어를 문장 끝에 붙이고 다시 묻는다. SQL의 <code>WITH RECURSIVE</code>는 결과를 다시 자기 입력으로 넣는다. 되풀이를 그대로 옮길 수 있다.</p>
+        <pre><code>CREATE OR REPLACE FUNCTION generate(toks int[], n int) RETURNS int[] AS $$
+  WITH RECURSIVE g(step, seq) AS (
+    SELECT 0, toks
+    UNION ALL
+    SELECT step+1, seq || next_id(seq) FROM g WHERE step &lt; n
+  )
+  SELECT seq FROM g ORDER BY step DESC LIMIT 1;
+$$ LANGUAGE sql;</code></pre>
+        <p><code>BOS sun hot sun</code>에서 시작하면 <code>hot sun hot sun</code>을 이어 붙인다. 마지막이 sun이면 "앞 단어가 sun인 자리"의 단어 hot을 가져온다. 마지막이 hot이면 "앞 단어가 hot인 자리"의 단어 sun을 가져온다. 그래서 번갈아 나온다.</p>
+        <p>가르친 적 없는 규칙을 문장에서 읽어 낸 것이다. 여기서 하나 더 보인다. LLM은 답을 미리 정해 두고 쓰지 않는다. 한 단어씩 고르다 보면 답이 되어 있다.</p>
+
+        <h3>자리가 모자라면</h3>
+        <p>그런데 9번째 자리가 오면 자리 칸이 16 + 9 = 25번이 된다. 정답 칸이다. 자리 칸이 8개뿐이라 8자리까지만 쓸 수 있다.</p>
+        <p>실제로 <code>BOS sun hot sun hot sun hot sun</code>은 hot이라고 답한다. 한 단어를 더 붙인 9자리 문장은 BOS라고 답한다. <mark><strong>에러는 하나도 나지 않는다.</strong></mark> 1편에서 본 "조용히 틀리기"가 훨씬 크게 나온 것이다.</p>
+        <p>고치려면 자리 칸을 늘리고 정답 칸을 뒤로 밀어야 한다. 그러면 벡터가 커진다. 문장을 길게 받으려면 메모리가 늘어난다는 진짜 모델의 사정이 이 작은 모델에서도 그대로 나타난다.</p>
+
+        <h2 id="temperature">4. 온도: 매번 다르게 답하기</h2>
+        <p>가장 큰 값만 고르면 늘 같은 답이 나온다. 진짜 LLM은 확률에 따라 제비뽑기를 한다.</p>
+        <p>방법은 룰렛이다. 확률을 차례로 더해 0~1 구간을 단어별로 나눈다. 그다음 <code>random()</code>으로 뽑은 수가 어느 구간에 떨어지는지 본다. 확률이 큰 단어일수록 구간이 넓어 자주 뽑힌다.</p>
+        <p><code>random()</code>을 쓰는 함수에는 <code>IMMUTABLE</code> 대신 <code>VOLATILE</code>을 붙인다. "같은 걸 넣어도 답이 달라질 수 있다"는 표시다.</p>
+        <p>여기에 <strong>온도</strong>를 더한다. 로짓에 8을 곱하던 걸 "8 ÷ 온도"를 곱하게 바꾼다. 온도가 1이면 그대로다. 온도가 2면 점수 차이가 절반으로 준다. 차이가 줄면 확률이 고르게 퍼지고, 다른 단어도 뽑힐 기회가 생긴다.</p>
+        <p>한 번 해 보니 온도 1.0으로 40번 뽑았을 때 40번 모두 hot이 나왔다. 3.0으로 올리니 hot이 23번, 나머지 일곱 단어가 17번 나왔다. 아래에서 직접 뽑아 보자.</p>
+        <figure class="fig">
+          <div class="chart-box" id="viz-temp"></div>
+          <div class="fig-controls">
+            <label><span>온도 T = <b id="temp-t-val">1.0</b></span><input type="range" id="temp-t" min="0.3" max="5" step="0.1" value="1"></label>
+            <button type="button" class="chip-btn" id="temp-draw">40번 뽑기</button>
+          </div>
+          <p class="readout" id="temp-readout"></p>
+          <figcaption>마지막 sun 다음 단어의 확률. 뽑기를 누르면 막대 아래에 뽑힌 횟수가 붙는다.</figcaption>
+        </figure>
+        <p>ChatGPT가 같은 질문에 매번 조금씩 다르게 답하는 이유다. API에도 <code>temperature</code>라는 이름 그대로 있다. 코드처럼 정확해야 하면 낮추고, 글짓기처럼 다양해야 하면 올린다.</p>
+
+        <h2 id="missing">5. 이 모델에 없는 부품</h2>
+        <p>진짜 트랜스포머의 한 층은 "어텐션 → 잔차 → layernorm → MLP → 잔차 → layernorm"이다. 이 모델은 "어텐션 → 잔차"뿐이다. 빠진 두 부품을 만들어 보고, 왜 필요 없는지 확인한다.</p>
+        <h3>MLP</h3>
+        <p><strong>MLP</strong>는 작은 계산기다. 벡터를 넓혔다가, 음수를 0으로 자르고(<code>relu</code>), 다시 좁힌다. <code>matvec(w2, relu(matvec(w1, x)))</code> 한 줄이다.</p>
+        <p>가운데 <code>relu</code>가 중요하다. 이게 없으면 행렬 두 개를 미리 곱해 하나로 합칠 수 있다(1편의 "기계 두 대를 한 대로"). 그러면 층을 두 개 쌓은 의미가 없어진다. 음수를 자르는 일은 행렬 곱셈으로 흉내 낼 수 없다.</p>
+        <p>어텐션은 정보를 <strong>자리와 자리 사이로</strong> 옮긴다. MLP는 <strong>한 자리 안에서</strong> 정보를 다듬는다. 이 모델은 옮기기만 한다. 앞 단어를 9–16칸으로, 찾은 단어를 25–32칸으로 옮길 뿐이다. 다듬을 게 없으니 MLP가 할 일이 없다.</p>
+        <p>진짜 모델은 "이건 동사다" 같은 판단을 해야 해서 MLP가 필요하다. GPT 같은 모델은 숫자의 3분의 2쯤이 MLP에 들어 있다.</p>
+        <h3>layernorm</h3>
+        <p><strong>layernorm</strong>을 1층과 2층 사이에 끼워 보자. 로짓이 {0, …, 1, …, 0}에서 {−0.643, …, 2.788, …, −0.643}으로 확 바뀐다. 그래도 답은 여전히 hot이다.</p>
+        <p>모든 값에서 같은 수를 빼고 같은 수로 나누니 순서가 그대로다. 답은 가장 큰 값을 고르는 것이라 바뀌지 않는다. 층이 둘뿐이라 값이 커질 일도 없다.</p>
+        <table>
+          <thead><tr><th>부품</th><th>이 모델</th><th>진짜 모델</th><th>왜 다른가</th></tr></thead>
+          <tbody>
+            <tr><td>어텐션</td><td>꼭 필요</td><td>꼭 필요</td><td>자리 사이로 정보를 옮긴다</td></tr>
+            <tr><td>잔차</td><td>꼭 필요</td><td>꼭 필요</td><td>1층 정보를 2층까지 살려 보낸다</td></tr>
+            <tr><td>MLP</td><td>필요 없음</td><td>꼭 필요</td><td>옮기기만 하고 다듬지 않는다</td></tr>
+            <tr><td>layernorm</td><td>필요 없음</td><td>꼭 필요</td><td>층이 2개뿐이라 값이 안 커진다</td></tr>
+          </tbody>
+        </table>
+        <p>부품 이름을 외우기보다 이 표를 이해하는 게 더 쓸모 있다. 부품마다 풀려는 문제가 있다. 그 문제가 없으면 부품도 필요 없다.</p>
+
+        <h2 id="train">6. 학습 맛보기: 숫자 하나</h2>
+        <p>지금까지는 숫자를 손으로 정했다. 학습은 그 숫자를 데이터가 찾게 하는 일이다.</p>
+        <p>하는 일은 단순하다. 얼마나 틀렸는지 재고(손실), 어느 쪽으로 움직이면 덜 틀릴지 보고(기울기), 그쪽으로 조금 옮긴다. 그리고 처음부터 다시 한다.</p>
+        <h3>손실: 틀린 만큼 주는 벌점</h3>
+        <p>손실은 정답에 준 확률로 정한다. ln이라는 계산을 쓰는데, exp를 거꾸로 하는 계산이다. 식은 몰라도 된다. 아래 표만 보면 된다.</p>
+        <table>
+          <thead><tr><th>정답에 준 확률</th><th>손실</th><th>뜻</th></tr></thead>
+          <tbody>
+            <tr><td>1.0</td><td>0</td><td>확신하고 맞혔다. 벌점 없음</td></tr>
+            <tr><td>0.5</td><td>0.693</td><td>반반이다. 조금 벌점</td></tr>
+            <tr><td>0.1</td><td>2.303</td><td>많이 틀렸다</td></tr>
+            <tr><td>0.001</td><td>6.908</td><td>엉뚱한 답을 확신했다. 벌점 폭탄</td></tr>
+          </tbody>
+        </table>
+        <p>맞히면 0이고, 틀릴수록 빠르게 커진다. 이걸 <strong>교차 엔트로피 손실</strong>이라고 부른다. 거의 모든 언어 모델이 이걸 쓴다.</p>
+        <h3>학습할 숫자 a</h3>
+        <p>모델 전체 대신 숫자 하나만 학습시킨다. 답을 정할 때 후보가 둘 있다고 하자. "2층이 문맥에서 찾아온 답(hot)"과 "그냥 지금 단어 따라 하기(sun)"다.</p>
+        <p>둘을 얼마나 믿을지 숫자 <code>a</code> 하나로 정한다. a가 0.7이면 문맥 답을 70%, 따라 하기를 30% 믿는다.</p>
+        <p>a = 1이면 손으로 만든 원래 모델이다. a = 0이면 문맥을 무시하는 망가진 모델이다. 손실은 a = 0일 때 8.0023, a = 1일 때 0.0024다. a가 0.6을 넘으면 답이 sun에서 hot으로 바뀐다.</p>
+        <h3>기울기는 살짝 움직여 보고 잰다</h3>
+        <p>미분 공식은 쓰지 않는다. a를 0.001만큼 올려 보고, 손실이 얼마나 변했는지 보면 된다. 이걸 <strong>수치미분</strong>이라고 한다.</p>
+        <p>기울기가 음수면 "a를 키우면 손실이 준다"는 뜻이다. 그럼 키우면 된다. 안개 낀 산을 내려간다고 생각하면 쉽다. 한 발 살짝 내디뎌 내리막이면 그쪽으로 간다. 산 전체 지도가 없어도 내려갈 수 있다.</p>
+        <pre><code>WITH RECURSIVE step(n, a) AS (
+  SELECT 0, 0.0::float8
+  UNION ALL
+  SELECT n+1, a - 0.05 * grad_fast(a, 5) FROM step WHERE n &lt; 40
+)
+SELECT n, a, loss_fast(a, 5) FROM step;</code></pre>
+        <p><mark><code>a − 0.05 × 기울기</code> 한 줄이 학습의 전부다</mark>. 0.05는 <strong>학습률</strong>, 한 걸음의 보폭이다. 아래 그림에서 a = 0에서 출발해 40걸음을 걸어 보자.</p>
+        <figure class="fig">
+          <div class="chart-box" id="viz-lossa"></div>
+          <div class="fig-controls">
+            <label><span>학습률 <b id="lossa-lr-val">0.05</b></span><input type="range" id="lossa-lr" min="0.005" max="0.1" step="0.005" value="0.05"></label>
+            <button type="button" class="chip-btn" id="lossa-play">40걸음 걷기</button>
+          </div>
+          <p class="readout" id="lossa-readout"></p>
+          <figcaption>a에 따른 손실 곡선 위를 걷는 경사하강. 주황 점이 한 걸음이다.</figcaption>
+        </figure>
+        <p>학습률 0.05면 8걸음 만에 a가 0.85까지 빠르게 오른다. 그 뒤로는 기울기가 완만해져 천천히 간다. 40걸음 뒤에는 a = 0.95, 손실 0.0038이다.</p>
+        <p>손으로 넣었던 1.0 쪽으로 스스로 찾아간 것이다. 반복문 없이 SQL 한 문장으로 40걸음을 걸었다.</p>
+        <p>속도도 하나 챙긴다. 기울기를 한 번 잴 때마다 모델을 두 번 돌려야 한다. 그런데 <code>forward</code> 결과는 a와 상관없다. 그러니 한 번만 계산해 표에 넣어 두면 된다.</p>
+        <p>안 바뀌는 계산을 미리 해 두는 건 속도를 높이는 기본 방법이다. 진짜 LLM도 문장을 만들 때 앞부분 계산을 저장해 다시 쓴다. 이걸 <strong>KV 캐시</strong>라고 부른다.</p>
+
+        <h2 id="summary">7. 정리</h2>
+        <table>
+          <thead><tr><th>항목</th><th>이 모델</th><th>GPT-2 small</th></tr></thead>
+          <tbody>
+            <tr><td>아는 단어</td><td>8개</td><td>50,257개</td></tr>
+            <tr><td>벡터 칸 수</td><td>32칸</td><td>768칸</td></tr>
+            <tr><td>층 · 헤드</td><td>2 · 1</td><td>12 · 12</td></tr>
+            <tr><td>한 번에 읽는 길이</td><td>8자리</td><td>1,024자리</td></tr>
+            <tr><td>가중치는 누가</td><td>손으로 정함</td><td>데이터로 배움</td></tr>
+          </tbody>
+        </table>
+        <p>크기는 달라도 뼈대는 같다. 어텐션으로 정보를 옮기고, 잔차로 원래 정보를 살리고, 로짓에서 하나를 고르고, 붙여서 되풀이한다.</p>
+        <ol>
+          <li>같은 <code>attn_layer</code>에 가중치만 바꾸면 다른 일을 한다. 1층은 자리로, 2층은 단어로 찾는다.</li>
+          <li>두 층이 합쳐져 유도 헤드가 된다. 문장 속 규칙을 읽고 따른다.</li>
+          <li>문장 만들기는 다음 단어 맞히기를 이어 붙인 것이다.</li>
+          <li>너무 긴 문장을 넣으면 에러 없이 조용히 틀린다.</li>
+          <li>온도가 답의 다양함을 정한다.</li>
+          <li>학습은 손실이 줄어드는 쪽으로 조금씩 옮기는 것이다.</li>
+        </ol>
+        <p>숙제가 하나 남았다. 숫자를 손으로 정할 수 있었던 건 답을 미리 알았기 때문이다. 4편에서는 손을 뗀다.</p>
+        <nav class="post-pager" aria-label="이전 글, 다음 글">
+          <a class="prev" href="pg-llm-2.html"><small>이전 글</small>← 2편. 어텐션 1층: 직전 단어 기억하기</a>
+          <a class="next" href="pg-llm-4.html"><small>다음 글</small>4편. 학습: 숫자를 데이터가 정하게 →</a>
+        </nav>
+      </article>
+    </main>
+  </div>
+  <script defer src="../assets/pg-llm-code.js"></script>
+  <script src="../assets/theme.js"></script>
+  <script type="module" src="../assets/pg-llm.js"></script>
+  <script type="module" src="../assets/pg-llm-viz.js"></script>
+</body>
+</html>

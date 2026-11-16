@@ -1,0 +1,19 @@
+{
+  "total": 329,
+  "implemented": 329,
+  "missing": [],
+  "bySubject": {
+    "calculus": {
+      "total": 144,
+      "implemented": 144
+    },
+    "geometry": {
+      "total": 76,
+      "implemented": 76
+    },
+    "probability": {
+      "total": 109,
+      "implemented": 109
+    }
+  }
+}
