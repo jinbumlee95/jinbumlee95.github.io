@@ -163,14 +163,25 @@
       }));
       track.addEventListener('scroll', updateArrows, { passive: true });
 
-      // Slide view: vertical wheel scrolls the cards sideways. At either end the page scrolls as usual.
+      // Slide view: vertical wheel scrolls the cards sideways, eased toward a target so it glides.
+      // At either end the page scrolls as usual.
+      let target = 0, raf = 0;
+      const glide = () => {
+        const diff = target - track.scrollLeft;
+        if (Math.abs(diff) < 0.5) { track.scrollLeft = target; raf = 0; return; }
+        track.scrollLeft += diff * 0.18;
+        raf = requestAnimationFrame(glide);
+      };
       track.addEventListener('wheel', (e) => {
         if (!section.classList.contains('view-slide')) return;
         if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // horizontal trackpad swipe: native scroll
-        const max = track.scrollWidth - track.clientWidth - 2;
-        if ((e.deltaY < 0 && track.scrollLeft <= 2) || (e.deltaY > 0 && track.scrollLeft >= max)) return;
+        const max = track.scrollWidth - track.clientWidth;
+        if (!raf) target = track.scrollLeft;
+        if ((e.deltaY < 0 && target <= 1) || (e.deltaY > 0 && target >= max - 1)) return;
         e.preventDefault();
-        track.scrollLeft += e.deltaY;
+        const px = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaMode === 2 ? e.deltaY * track.clientWidth : e.deltaY;
+        target = Math.max(0, Math.min(max, target + px));
+        if (!raf) raf = requestAnimationFrame(glide);
       }, { passive: false });
       addEventListener('resize', updateArrows);
       toggles.forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
