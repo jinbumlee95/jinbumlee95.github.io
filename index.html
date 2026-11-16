@@ -36,6 +36,9 @@
         <a href="#projects">
           <span>Projects</span>
         </a>
+        <a href="#studies">
+          <span>Studies</span>
+        </a>
       </nav>
       <button type="button" class="theme-toggle" aria-label="라이트/다크 모드 전환">
         <span class="theme-icon" aria-hidden="true"></span><span class="theme-label"></span>
@@ -62,7 +65,7 @@
           <div class="view-tools">
             <label class="search">
               <span class="sr-only">제목 검색</span>
-              <input type="search" id="project-search" placeholder="제목 검색" autocomplete="off">
+              <input type="search" class="search-input" placeholder="제목 검색" autocomplete="off">
             </label>
             <div class="slide-nav">
               <button type="button" class="slide-btn" data-dir="-1" aria-label="이전 프로젝트">←</button>
@@ -91,6 +94,29 @@
             <ul class="tags"><li>Python</li><li>EmbeddingGemma 2</li><li>FastAPI</li><li>Vite</li><li>VLM</li></ul>
             <span class="link">자세히 보기 →</span>
           </a>
+        </div>
+        <p class="search-empty" hidden>검색 결과가 없습니다.</p>
+      </section>
+
+      <section id="studies" class="projects view-slide">
+        <div class="section-head">
+          <h2>Studies</h2>
+          <div class="view-tools">
+            <label class="search">
+              <span class="sr-only">제목 검색</span>
+              <input type="search" class="search-input" placeholder="제목 검색" autocomplete="off">
+            </label>
+            <div class="slide-nav">
+              <button type="button" class="slide-btn" data-dir="-1" aria-label="이전 학습 자료">←</button>
+              <button type="button" class="slide-btn" data-dir="1" aria-label="다음 학습 자료">→</button>
+            </div>
+            <div class="view-toggle" role="group" aria-label="보기 방식">
+              <button type="button" data-view="slide" aria-pressed="true">슬라이드</button>
+              <button type="button" data-view="list" aria-pressed="false">리스트</button>
+            </div>
+          </div>
+        </div>
+        <div class="cards" tabindex="0" aria-label="학습 자료 목록">
           <a class="card" href="notes/pg-llm-1.html">
             <p class="eyebrow">학습 노트 6편 · 인터랙티브 그림</p>
             <h3>PG로 LLM 만들기</h3>
@@ -133,9 +159,9 @@
       cards.forEach((card) => card.classList.add('visible'));
     }
 
-    // Projects: horizontal slider or blog-style list
-    (() => {
-      const section = document.getElementById('projects');
+    // Projects / Studies: horizontal slider or blog-style list
+    document.querySelectorAll('#projects, #studies').forEach((section) => {
+      const viewKey = `${section.id}-view`;
       const track = section.querySelector('.cards');
       const toggles = section.querySelectorAll('[data-view]');
       const arrows = section.querySelectorAll('.slide-btn');
@@ -146,7 +172,7 @@
         track.scrollLeft = 0;
         // List mode shows every card, so reveal any that were still off to the side
         if (view === 'list') track.querySelectorAll('.card').forEach((c) => { c.style.transitionDelay = '0ms'; c.classList.add('visible'); });
-        try { localStorage.setItem('projects-view', view); } catch (e) {}
+        try { localStorage.setItem(viewKey, view); } catch (e) {}
         updateArrows();
       };
       const step = () => {
@@ -187,7 +213,7 @@
       toggles.forEach((b) => b.addEventListener('click', () => setView(b.dataset.view)));
 
       // Title search: the visible title, or aria-label for the lettered-tile title
-      const search = document.getElementById('project-search');
+      const search = section.querySelector('.search-input');
       const empty = section.querySelector('.search-empty');
       const items = [...track.querySelectorAll('.card')].map((card) => {
         const h = card.querySelector('h3');
@@ -206,9 +232,9 @@
         updateArrows();
       });
       let saved = 'slide';
-      try { saved = localStorage.getItem('projects-view') || 'slide'; } catch (e) {}
+      try { saved = localStorage.getItem(viewKey) || 'slide'; } catch (e) {}
       setView(saved === 'list' ? 'list' : 'slide');
-    })();
+    });
   </script>
   <script src="assets/theme.js"></script>
 </body>
